@@ -502,11 +502,64 @@ end)
 --========================================================
 -- PHÁT NHẠC
 --========================================================
-
 local Current = 1
 local Volume = 0.7
-local Favorites = {}
 local ShowingFavorites = false
+
+-- ⭐ LƯU YÊU THÍCH
+local HttpService = game:GetService("HttpService")
+local FavoriteFile = "MINH_ANH_DZ_Favorites.json"
+local Favorites = {}
+
+local function SaveFavorites()
+	if not writefile then return end
+
+	local saved = {}
+
+	for index, value in pairs(Favorites) do
+		if value and MUSIC[index] then
+			table.insert(saved, MUSIC[index][2])
+		end
+	end
+
+	local ok, encoded = pcall(function()
+		return HttpService:JSONEncode(saved)
+	end)
+
+	if ok then
+		pcall(function()
+			writefile(FavoriteFile, encoded)
+		end)
+	end
+end
+
+local function LoadFavorites()
+	if not readfile or not isfile then return end
+	if not isfile(FavoriteFile) then return end
+
+	local ok, content = pcall(function()
+		return readfile(FavoriteFile)
+	end)
+
+	if not ok or not content or content == "" then return end
+
+	local ok2, saved = pcall(function()
+		return HttpService:JSONDecode(content)
+	end)
+
+	if not ok2 or type(saved) ~= "table" then return end
+
+	for _, savedId in ipairs(saved) do
+		for index, song in ipairs(MUSIC) do
+			if tostring(song[2]) == tostring(savedId) then
+				Favorites[index] = true
+				break
+			end
+		end
+	end
+end
+
+LoadFavorites()
 
 local function PlaySong(index)
 
@@ -611,7 +664,8 @@ local function RefreshList()
 			Star.Activated:Connect(function()
 
 				Favorites[index] = not Favorites[index]
-
+					
+                SaveFavorites()
 				RefreshList()
 
 			end)
