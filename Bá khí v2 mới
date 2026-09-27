@@ -1,0 +1,1104 @@
+--========================================================
+-- MINH ANH BÁ KHÍ v2.0
+-- GIỮ MENU BÁ KHÍ V1 + THÊM NHÌN TRỨNG / LẤY TRỨNG
+--========================================================
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UIS = game:GetService("UserInputService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+--========================================================
+-- XÓA GUI CŨ
+--========================================================
+
+local OldGUI = PlayerGui:FindFirstChild("MINH_ANH_BA_KHI")
+
+if OldGUI then
+    OldGUI:Destroy()
+end
+
+--========================================================
+-- GAME DATA
+-- KHÔNG CHẶN VIỆC TẠO MENU
+--========================================================
+
+local ServerData
+local ActiveEggs
+local EggsModule
+
+task.spawn(function()
+
+    ServerData = ReplicatedStorage:WaitForChild("ServerData",30)
+
+    if ServerData then
+        ActiveEggs = ServerData:WaitForChild("ActiveEggs",30)
+    end
+
+    pcall(function()
+
+        local GameData =
+            ReplicatedStorage:WaitForChild("GameData",30)
+
+        if GameData then
+
+            local Eggs =
+                GameData:WaitForChild("Eggs",30)
+
+            if Eggs then
+                EggsModule = require(Eggs)
+            end
+
+        end
+
+    end)
+
+end)
+
+--========================================================
+-- FORMAT NUMBER
+--========================================================
+
+local function FormatNumber(Number)
+
+    Number = tonumber(Number) or 0
+
+    if Number >= 1000000000000 then
+        return string.format("%.2fT",Number/1000000000000)
+
+    elseif Number >= 1000000000 then
+        return string.format("%.2fB",Number/1000000000)
+
+    elseif Number >= 1000000 then
+        return string.format("%.2fM",Number/1000000)
+
+    elseif Number >= 1000 then
+        return string.format("%.2fK",Number/1000)
+
+    else
+        return tostring(Number)
+    end
+
+end
+
+--========================================================
+-- GET EGG INFO
+--========================================================
+
+local function GetEggInfo(Egg)
+
+    if not Egg then
+        return nil,0
+    end
+
+    local EggName =
+        Egg:GetAttribute("Egg")
+
+    if not EggName then
+        EggName = Egg.Name
+    end
+
+    local Luck =
+        tonumber(Egg:GetAttribute("Luck")) or 0
+
+    if EggsModule and EggName then
+
+        pcall(function()
+
+            local Data =
+                EggsModule[EggName]
+
+            if type(Data) == "table" then
+
+                Luck =
+                    tonumber(Data.Luck) or Luck
+
+            end
+
+        end)
+
+    end
+
+    return EggName,Luck
+
+end
+
+--========================================================
+-- SCREEN GUI
+--========================================================
+
+local GUI = Instance.new("ScreenGui")
+
+GUI.Name = "MINH_ANH_BA_KHI"
+GUI.ResetOnSpawn = false
+GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+GUI.Parent = PlayerGui
+
+--========================================================
+-- MAIN MENU
+--========================================================
+
+local Main = Instance.new("Frame")
+
+Main.Name = "Main"
+
+Main.Size =
+    UDim2.new(0,360,0,420)
+
+Main.Position =
+    UDim2.new(0.5,-180,0.5,-210)
+
+Main.BackgroundColor3 =
+    Color3.fromRGB(25,20,45)
+
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Parent = GUI
+
+local MainCorner =
+    Instance.new("UICorner")
+
+MainCorner.CornerRadius =
+    UDim.new(0,14)
+
+MainCorner.Parent = Main
+
+local MainStroke =
+    Instance.new("UIStroke")
+
+MainStroke.Color =
+    Color3.fromRGB(105,65,255)
+
+MainStroke.Thickness = 2
+MainStroke.Parent = Main
+
+--========================================================
+-- TITLE
+--========================================================
+
+local Title =
+    Instance.new("TextLabel")
+
+Title.Size =
+    UDim2.new(1,-55,0,42)
+
+Title.Position =
+    UDim2.new(0,12,0,3)
+
+Title.BackgroundTransparency = 1
+
+Title.Text =
+    "MINH ANH BÁ KHÍ"
+
+Title.TextColor3 =
+    Color3.fromRGB(200,160,255)
+
+Title.Font =
+    Enum.Font.GothamBold
+
+Title.TextSize = 17
+
+Title.TextXAlignment =
+    Enum.TextXAlignment.Left
+
+Title.Parent = Main
+
+--========================================================
+-- MINIMIZE
+--========================================================
+
+local Min =
+    Instance.new("TextButton")
+
+Min.Size =
+    UDim2.new(0,35,0,35)
+
+Min.Position =
+    UDim2.new(1,-42,0,7)
+
+Min.BackgroundColor3 =
+    Color3.fromRGB(65,45,125)
+
+Min.Text = "—"
+
+Min.TextColor3 =
+    Color3.new(1,1,1)
+
+Min.Font =
+    Enum.Font.GothamBold
+
+Min.TextSize = 20
+
+Min.Parent = Main
+
+local MinCorner =
+    Instance.new("UICorner")
+
+MinCorner.CornerRadius =
+    UDim.new(1,0)
+
+MinCorner.Parent = Min
+
+--========================================================
+-- TAB BAR
+--========================================================
+
+local TabBar =
+    Instance.new("Frame")
+
+TabBar.Size =
+    UDim2.new(1,-20,0,42)
+
+TabBar.Position =
+    UDim2.new(0,10,0,48)
+
+TabBar.BackgroundTransparency = 1
+TabBar.Parent = Main
+
+local LookTab =
+    Instance.new("TextButton")
+
+LookTab.Size =
+    UDim2.new(0.5,-4,1,0)
+
+LookTab.Position =
+    UDim2.new(0,0,0,0)
+
+LookTab.BackgroundColor3 =
+    Color3.fromRGB(100,55,190)
+
+LookTab.Text =
+    "👁 NHÌN TRỨNG"
+
+LookTab.TextColor3 =
+    Color3.new(1,1,1)
+
+LookTab.Font =
+    Enum.Font.GothamBold
+
+LookTab.TextSize = 13
+
+LookTab.Parent = TabBar
+
+Instance.new("UICorner",LookTab).CornerRadius =
+    UDim.new(0,9)
+
+local GetTab =
+    Instance.new("TextButton")
+
+GetTab.Size =
+    UDim2.new(0.5,-4,1,0)
+
+GetTab.Position =
+    UDim2.new(0.5,4,0,0)
+
+GetTab.BackgroundColor3 =
+    Color3.fromRGB(45,35,75)
+
+GetTab.Text =
+    "🥚 LẤY TRỨNG"
+
+GetTab.TextColor3 =
+    Color3.new(1,1,1)
+
+GetTab.Font =
+    Enum.Font.GothamBold
+
+GetTab.TextSize = 13
+
+GetTab.Parent = TabBar
+
+Instance.new("UICorner",GetTab).CornerRadius =
+    UDim.new(0,9)
+
+--========================================================
+-- TRANG NHÌN TRỨNG
+--========================================================
+
+local LookPage =
+    Instance.new("ScrollingFrame")
+
+LookPage.Name = "LookPage"
+
+LookPage.Size =
+    UDim2.new(1,-20,1,-105)
+
+LookPage.Position =
+    UDim2.new(0,10,0,100)
+
+LookPage.BackgroundTransparency = 1
+LookPage.BorderSizePixel = 0
+LookPage.ScrollBarThickness = 4
+LookPage.Parent = Main
+
+local LookLayout =
+    Instance.new("UIListLayout")
+
+LookLayout.Padding =
+    UDim.new(0,6)
+
+LookLayout.SortOrder =
+    Enum.SortOrder.LayoutOrder
+
+LookLayout.Parent = LookPage
+
+--========================================================
+-- TRANG LẤY TRỨNG
+--========================================================
+
+local GetPage =
+    Instance.new("ScrollingFrame")
+
+GetPage.Name = "GetPage"
+
+GetPage.Size =
+    UDim2.new(1,-20,1,-105)
+
+GetPage.Position =
+    UDim2.new(0,10,0,100)
+
+GetPage.BackgroundTransparency = 1
+GetPage.BorderSizePixel = 0
+GetPage.ScrollBarThickness = 4
+GetPage.Visible = false
+GetPage.Parent = Main
+
+local GetLayout =
+    Instance.new("UIListLayout")
+
+GetLayout.Padding =
+    UDim.new(0,6)
+
+GetLayout.SortOrder =
+    Enum.SortOrder.LayoutOrder
+
+GetLayout.Parent = GetPage
+
+--========================================================
+-- TAB CHUYỂN
+--========================================================
+
+LookTab.Activated:Connect(function()
+
+    LookPage.Visible = true
+    GetPage.Visible = false
+
+    LookTab.BackgroundColor3 =
+        Color3.fromRGB(100,55,190)
+
+    GetTab.BackgroundColor3 =
+        Color3.fromRGB(45,35,75)
+
+end)
+
+GetTab.Activated:Connect(function()
+
+    LookPage.Visible = false
+    GetPage.Visible = true
+
+    LookTab.BackgroundColor3 =
+        Color3.fromRGB(45,35,75)
+
+    GetTab.BackgroundColor3 =
+        Color3.fromRGB(100,55,190)
+
+end)
+
+--========================================================
+-- BÁ KHÍ V1 - DATA
+--========================================================
+
+local LuckButtons = {}
+local SelectedLuck = {}
+local ESPObjects = {}
+
+--========================================================
+-- REMOVE ESP
+--========================================================
+
+local function RemoveESP(Egg)
+
+    local ESP =
+        ESPObjects[Egg]
+
+    if ESP then
+
+        pcall(function()
+            ESP:Destroy()
+        end)
+
+        ESPObjects[Egg] = nil
+
+    end
+
+end
+
+--========================================================
+-- CREATE ESP
+--========================================================
+
+local function CreateESP(Egg)
+
+    if not Egg or not Egg.Parent then
+        return
+    end
+
+    local EggName,Luck =
+        GetEggInfo(Egg)
+
+    if not EggName then
+        return
+    end
+
+    if not SelectedLuck[Luck] then
+        RemoveESP(Egg)
+        return
+    end
+
+    local Position =
+        Egg:GetAttribute("Position")
+
+    if typeof(Position) ~= "Vector3" then
+        RemoveESP(Egg)
+        return
+    end
+
+    local Part =
+        ESPObjects[Egg]
+
+    if not Part then
+
+        Part =
+            Instance.new("Part")
+
+        Part.Name =
+            "MA_EGG_ESP"
+
+        Part.Size =
+            Vector3.new(0.1,0.1,0.1)
+
+        Part.Transparency = 1
+        Part.Anchored = true
+        Part.CanCollide = false
+        Part.CanTouch = false
+        Part.CanQuery = false
+        Part.Parent = workspace
+
+        local Billboard =
+            Instance.new("BillboardGui")
+
+        Billboard.Name =
+            "LuckESP"
+
+        Billboard.Size =
+            UDim2.new(0,150,0,35)
+
+        Billboard.StudsOffset =
+            Vector3.new(0,3,0)
+
+        Billboard.AlwaysOnTop = true
+        Billboard.Parent = Part
+
+        local Text =
+            Instance.new("TextLabel")
+
+        Text.Size =
+            UDim2.fromScale(1,1)
+
+        Text.BackgroundTransparency = 1
+
+        Text.TextColor3 =
+            Color3.fromRGB(255,255,255)
+
+        Text.TextStrokeTransparency = 0
+
+        Text.Font =
+            Enum.Font.GothamBold
+
+        Text.TextSize = 14
+
+        Text.Parent = Billboard
+
+        ESPObjects[Egg] = Part
+
+    end
+
+    Part.CFrame =
+        CFrame.new(Position)
+
+    local Billboard =
+        Part:FindFirstChild("LuckESP")
+
+    if Billboard then
+
+        local Text =
+            Billboard:FindFirstChildOfClass("TextLabel")
+
+        if Text then
+
+            Text.Text =
+                "Luck: "..FormatNumber(Luck)
+
+        end
+
+    end
+
+end
+
+--========================================================
+-- UPDATE ESP
+--========================================================
+
+local function UpdateESP()
+
+    if not ActiveEggs then
+        return
+    end
+
+    for _,Egg in
+        ipairs(ActiveEggs:GetChildren()) do
+
+        CreateESP(Egg)
+
+    end
+
+    for Egg in pairs(ESPObjects) do
+
+        if not Egg
+            or not Egg.Parent
+            or not Egg:IsDescendantOf(ActiveEggs) then
+
+            RemoveESP(Egg)
+
+        else
+
+            local _,Luck =
+                GetEggInfo(Egg)
+
+            if not SelectedLuck[Luck] then
+                RemoveESP(Egg)
+            end
+
+        end
+
+    end
+
+end
+
+--========================================================
+-- CREATE LUCK BUTTON
+--========================================================
+
+local function CreateLuckButton(Luck)
+
+    if LuckButtons[Luck] then
+        return
+    end
+
+    local Button =
+        Instance.new("TextButton")
+
+    Button.Size =
+        UDim2.new(1,-5,0,38)
+
+    Button.BackgroundColor3 =
+        Color3.fromRGB(45,35,75)
+
+    Button.BorderSizePixel = 0
+
+    Button.TextColor3 =
+        Color3.new(1,1,1)
+
+    Button.Font =
+        Enum.Font.GothamBold
+
+    Button.TextSize = 14
+
+    Button.Text =
+        "□  Luck: "..FormatNumber(Luck)
+
+    Button.Parent = LookPage
+
+    local Corner =
+        Instance.new("UICorner")
+
+    Corner.CornerRadius =
+        UDim.new(0,9)
+
+    Corner.Parent = Button
+
+    LuckButtons[Luck] = Button
+    SelectedLuck[Luck] = false
+
+    Button.Activated:Connect(function()
+
+        SelectedLuck[Luck] =
+            not SelectedLuck[Luck]
+
+        if SelectedLuck[Luck] then
+
+            Button.Text =
+                "✓  Luck: "..FormatNumber(Luck)
+
+            Button.BackgroundColor3 =
+                Color3.fromRGB(100,55,190)
+
+        else
+
+            Button.Text =
+                "□  Luck: "..FormatNumber(Luck)
+
+            Button.BackgroundColor3 =
+                Color3.fromRGB(45,35,75)
+
+        end
+
+        UpdateESP()
+
+    end)
+
+end
+
+--========================================================
+-- REFRESH BÁ KHÍ V1
+--========================================================
+
+local function RefreshMenu()
+
+    if not ActiveEggs then
+        return
+    end
+
+    local CurrentLuck = {}
+
+    for _,Egg in
+        ipairs(ActiveEggs:GetChildren()) do
+
+        local EggName,Luck =
+            GetEggInfo(Egg)
+
+        if EggName and Luck > 0 then
+            CurrentLuck[Luck] = true
+        end
+
+    end
+
+    for Luck in pairs(CurrentLuck) do
+        CreateLuckButton(Luck)
+    end
+
+    for Luck,Button in pairs(LuckButtons) do
+
+        if not CurrentLuck[Luck] then
+
+            Button:Destroy()
+
+            LuckButtons[Luck] = nil
+            SelectedLuck[Luck] = nil
+
+        end
+
+    end
+
+    task.defer(function()
+
+        LookPage.CanvasSize =
+            UDim2.new(
+                0,
+                0,
+                0,
+                LookLayout.AbsoluteContentSize.Y + 10
+            )
+
+    end)
+
+    UpdateESP()
+
+end
+
+--========================================================
+-- LẤY TRỨNG
+--========================================================
+
+local SavedPosition
+local HomePosition
+
+local function GetRoot()
+
+    local Character =
+        Player.Character
+
+    if not Character then
+        return nil
+    end
+
+    return Character:FindFirstChild(
+        "HumanoidRootPart"
+    )
+
+end
+
+--========================================================
+-- LƯU NHÀ
+--========================================================
+
+task.spawn(function()
+
+    for i = 1,30 do
+
+        local Root =
+            GetRoot()
+
+        if Root then
+
+            HomePosition =
+                Root.CFrame
+
+            break
+
+        end
+
+        task.wait(1)
+
+    end
+
+end)
+
+--========================================================
+-- TELEPORT
+--========================================================
+
+local function Teleport(CFrame)
+
+    local Root =
+        GetRoot()
+
+    if Root and CFrame then
+        Root.CFrame = CFrame
+    end
+
+end
+
+--========================================================
+-- LẤY VỊ TRÍ TRỨNG
+--========================================================
+
+local function GetEggPosition(Egg)
+
+    if not Egg then
+        return nil
+    end
+
+    local Position =
+        Egg:GetAttribute("Position")
+
+    if typeof(Position) == "Vector3" then
+        return Position
+    end
+
+    if Egg:IsA("BasePart") then
+        return Egg.Position
+    end
+
+    if Egg:IsA("Model") then
+
+        local Part =
+            Egg.PrimaryPart
+            or Egg:FindFirstChildWhichIsA(
+                "BasePart",
+                true
+            )
+
+        if Part then
+            return Part.Position
+        end
+
+    end
+
+    return nil
+
+end
+
+--========================================================
+-- TÌM PROMPT
+--========================================================
+
+local function FindPrompt(Egg)
+
+    if not Egg then
+        return nil
+    end
+
+    local Prompt =
+        Egg:FindFirstChildWhichIsA(
+            "ProximityPrompt",
+            true
+        )
+
+    if Prompt then
+        return Prompt
+    end
+
+    local Position =
+        GetEggPosition(Egg)
+
+    if not Position then
+        return nil
+    end
+
+    local Best
+    local BestDistance = 12
+
+    for _,Object in
+        ipairs(workspace:GetDescendants()) do
+
+        if Object:IsA("ProximityPrompt") then
+
+            local Parent =
+                Object.Parent
+
+            if Parent and
+                Parent:IsA("BasePart") then
+
+                local Distance =
+                    (Parent.Position-Position).Magnitude
+
+                if Distance < BestDistance then
+
+                    BestDistance = Distance
+                    Best = Object
+
+                end
+
+            end
+
+        end
+
+    end
+
+    return Best
+
+end
+
+--========================================================
+-- NHẶT TRỨNG
+--========================================================
+
+local function PickEgg(Egg)
+
+    local Root =
+        GetRoot()
+
+    if not Root then
+        return
+    end
+
+    local Position =
+        GetEggPosition(Egg)
+
+    if not Position then
+        return
+    end
+
+    -- LƯU CHỖ CŨ
+    SavedPosition =
+        Root.CFrame
+
+    -- TELE ĐẾN TRỨNG
+    Teleport(
+        CFrame.new(
+            Position + Vector3.new(0,3,0)
+        )
+    )
+
+    task.wait(0.35)
+
+    local Prompt =
+        FindPrompt(Egg)
+
+    if Prompt then
+
+        pcall(function()
+
+            if typeof(fireproximityprompt) ==
+                "function" then
+
+                fireproximityprompt(Prompt)
+
+            else
+
+                Prompt:InputHoldBegin()
+
+                task.wait(
+                    math.max(
+                        Prompt.HoldDuration,
+                        0.2
+                    )
+                )
+
+                Prompt:InputHoldEnd()
+
+            end
+
+        end)
+
+    end
+
+    task.wait(0.5)
+
+    -- VỀ CHỖ CŨ
+    if SavedPosition then
+        Teleport(SavedPosition)
+    end
+
+end
+
+--========================================================
+-- XÓA TRANG LẤY TRỨNG
+--========================================================
+
+local function ClearGetPage()
+
+    for _,Object in
+        ipairs(GetPage:GetChildren()) do
+
+        if Object:IsA("Frame")
+            or Object:IsA("TextButton")
+            or Object:IsA("TextLabel") then
+
+            Object:Destroy()
+
+        end
+
+    end
+
+end
+
+--========================================================
+-- NÚT TELE
+--========================================================
+
+local function CreateTeleportButton(Text,Callback)
+
+    local Button =
+        Instance.new("TextButton")
+
+    Button.Size =
+        UDim2.new(1,-5,0,38)
+
+    Button.BackgroundColor3 =
+        Color3.fromRGB(45,35,75)
+
+    Button.BorderSizePixel = 0
+
+    Button.Text =
+        Text
+
+    Button.TextColor3 =
+        Color3.new(1,1,1)
+
+    Button.TextSize = 13
+
+    Button.Font =
+        Enum.Font.GothamBold
+
+    Button.Parent = GetPage
+
+    Instance.new("UICorner",Button).CornerRadius =
+        UDim.new(0,9)
+
+    Button.Activated:Connect(function()
+        pcall(Callback)
+    end)
+
+    return Button
+
+end
+
+--========================================================
+-- REFRESH LẤY TRỨNG
+--========================================================
+
+local function RefreshGetPage()
+
+    ClearGetPage()
+
+    CreateTeleportButton(
+        "🏠 TELE VỀ NHÀ",
+        function()
+
+            if HomePosition then
+                Teleport(HomePosition)
+            end
+
+        end
+    )
+
+    CreateTeleportButton(
+        "📍 TELE VỀ CHỖ CŨ",
+        function()
+
+            if SavedPosition then
+                Teleport(SavedPosition)
+            end
+
+        end
+    )
+
+    if not ActiveEggs then
+
+        CreateTeleportButton(
+            "⏳ ĐANG CHỜ DỮ LIỆU TRỨNG...",
+            function() end
+        )
+
+        return
+
+    end
+
+    --====================================================
+    -- MỖI LOẠI TRỨNG CHỈ 1 LẦN
+    --====================================================
+
+    local Types = {}
+    local Used = {}
+
+    for _,Egg in
+        ipairs(ActiveEggs:GetChildren()) do
+
+        local EggName,Luck =
+            GetEggInfo(Egg)
+
+        if EggName and not Used[EggName] then
+
+            Used[EggName] = true
+
+            table.insert(
+                Types,
+                {
+                    Name = EggName,
+                    Luck = Luck
+                }
+            )
+
+        end
+
+    end
+
+    table.sort(
+        Types,
+        function(A,B)
+            return tostring(A.Name) <
+                tostring(B.Name)
+        end
+    )
+
+    for _,Data in ipairs(Types) do
+
+        local Row =
+            Instance.new("Frame")
+
+        Row.Size =
+            UDim2.new(1,-5,0,
