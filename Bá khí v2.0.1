@@ -343,16 +343,73 @@ local HomeButton =
 local OldButton =
     MakePositionButton("Old","📍 VỀ CHỖ CŨ")
 
+--========================================================
+-- CHẾ ĐỘ NHÀ / CHỖ CŨ
+--========================================================
+
 SaveHomeButton.Activated:Connect(function()
 
     local Root = GetRoot()
-
     if not Root then return end
 
     SavedHomeCFrame = Root.CFrame
+
+    SaveHomeButton.Text = "✅ ĐÃ LƯU NHÀ"
     ReturnMode = "HOME"
 
-    SaveHomeButton.Visible = false
+end)
+
+
+SaveOldButton.Activated:Connect(function()
+
+    local Root = GetRoot()
+    if not Root then return end
+
+    -- Lưu vị trí hiện tại làm CHỖ CŨ
+    SavedOldCFrame = Root.CFrame
+
+    SaveOldButton.Text = "✅ ĐÃ LƯU CHỖ CŨ"
+    ReturnMode = "OLD"
+
+end)
+
+
+HomeButton.Activated:Connect(function()
+
+    if not SavedHomeCFrame then
+        HomeButton.Text = "❌ CHƯA LƯU NHÀ"
+        task.wait(0.8)
+        HomeButton.Text = "🏠 VỀ NHÀ"
+        return
+    end
+
+    ReturnMode = "HOME"
+
+    local Root = GetRoot()
+
+    if Root then
+        Root.CFrame = SavedHomeCFrame
+    end
+
+end)
+
+
+OldButton.Activated:Connect(function()
+
+    if not SavedOldCFrame then
+        OldButton.Text = "❌ CHƯA LƯU CHỖ CŨ"
+        task.wait(0.8)
+        OldButton.Text = "📍 VỀ CHỖ CŨ"
+        return
+    end
+
+    ReturnMode = "OLD"
+
+    local Root = GetRoot()
+
+    if Root then
+        Root.CFrame = SavedOldCFrame
+    end
 
 end)
 
@@ -564,9 +621,19 @@ local function PickEgg(Egg, Button)
 
     Busy = true
 
-    -- LƯU VỊ TRÍ
+--========================================================
+-- NẾU CHỌN CHỖ CŨ:
+-- TỰ ĐỘNG LƯU VỊ TRÍ NGAY TRƯỚC KHI ĐI LẤY TRỨNG
+--========================================================
 
-    -- TELE
+if ReturnMode == "OLD" then
+    SavedOldCFrame = Root.CFrame
+end
+
+--========================================================
+-- TELE ĐẾN TRỨNG
+--========================================================
+
     Button.Text =
         "⚡ TELE..."
 
