@@ -1,0 +1,1146 @@
+--========================================================
+-- MINH ANH BÁ KHÍ v2.0.1
+-- TAB NHÌN TRỨNG + TAB LẤY TRỨNG
+-- MỖI LOẠI TRỨNG CHỈ HIỆN 1 LẦN
+-- ĐẶT VỊ TRÍ -> TELE TRỨNG -> NHẶT -> QUAY VỀ
+--========================================================
+
+local URL =
+"https://raw.githubusercontent.com/leminhanhdepzai2112013-collab/Script-/refs/heads/main/B%C3%A1%20kh%C3%AD"
+
+--========================================================
+-- LOAD SCRIPT GỐC
+--========================================================
+
+local ok, err = pcall(function()
+    loadstring(game:HttpGet(URL))()
+end)
+
+if not ok then
+    warn("LOI LOAD BA KHI:", err)
+    return
+end
+
+local Players =
+    game:GetService("Players")
+
+local ReplicatedStorage =
+    game:GetService("ReplicatedStorage")
+
+local Player =
+    Players.LocalPlayer
+
+local PlayerGui =
+    Player:WaitForChild("PlayerGui")
+
+--========================================================
+-- CHỜ MENU GỐC
+--========================================================
+
+local GUI =
+    PlayerGui:WaitForChild(
+        "MINH_ANH_BA_KHI",
+        15
+    )
+
+if not GUI then
+    warn("KHONG TIM THAY MENU")
+    return
+end
+
+local Main
+
+for _,v in ipairs(GUI:GetChildren()) do
+
+    if v:IsA("Frame") then
+        Main = v
+        break
+    end
+
+end
+
+if not Main then
+    warn("KHONG TIM THAY MAIN")
+    return
+end
+
+--========================================================
+-- DATA
+--========================================================
+
+local ServerData =
+    ReplicatedStorage:WaitForChild(
+        "ServerData"
+    )
+
+local ActiveEggs =
+    ServerData:WaitForChild(
+        "ActiveEggs"
+    )
+
+local EggsModule
+
+pcall(function()
+
+    EggsModule =
+        require(
+            ReplicatedStorage
+                :WaitForChild("GameData")
+                :WaitForChild("Eggs")
+        )
+
+end)
+
+--========================================================
+-- FORMAT LUCK
+--========================================================
+
+local function FormatNumber(Number)
+
+    Number =
+        tonumber(Number) or 0
+
+    if Number >= 1000000000000 then
+
+        return string.format(
+            "%.2fT",
+            Number / 1000000000000
+        )
+
+    elseif Number >= 1000000000 then
+
+        return string.format(
+            "%.2fB",
+            Number / 1000000000
+        )
+
+    elseif Number >= 1000000 then
+
+        return string.format(
+            "%.2fM",
+            Number / 1000000
+        )
+
+    elseif Number >= 1000 then
+
+        return string.format(
+            "%.2fK",
+            Number / 1000
+        )
+
+    else
+
+        return tostring(Number)
+
+    end
+
+end
+
+--========================================================
+-- LẤY TÊN + LUCK
+--========================================================
+
+local function GetEggInfo(Egg)
+
+    if not Egg then
+        return "Trứng",0
+    end
+
+    local EggName =
+        Egg:GetAttribute("Egg")
+
+    if not EggName then
+        return "Trứng",0
+    end
+
+    local Luck =
+        tonumber(
+            Egg:GetAttribute("Luck")
+        ) or 0
+
+    if EggsModule then
+
+        pcall(function()
+
+            local Data =
+                EggsModule[EggName]
+
+            if type(Data) == "table" then
+
+                Luck =
+                    tonumber(Data.Luck)
+                    or Luck
+
+            end
+
+        end)
+
+    end
+
+    return EggName,Luck
+
+end
+
+--========================================================
+-- TÌM LIST GỐC
+--========================================================
+
+local OldList
+
+for _,v in ipairs(Main:GetChildren()) do
+
+    if v:IsA("ScrollingFrame") then
+
+        OldList = v
+        break
+
+    end
+
+end
+
+if not OldList then
+
+    warn("KHONG TIM THAY LIST")
+    return
+
+end
+
+--========================================================
+-- XÓA TAB CŨ NẾU CÓ
+--========================================================
+
+local OldTabs =
+    Main:FindFirstChild(
+        "MA_EGG_TABS"
+    )
+
+if OldTabs then
+    OldTabs:Destroy()
+end
+
+local OldPage =
+    Main:FindFirstChild(
+        "MA_TAKE_EGG_PAGE"
+    )
+
+if OldPage then
+    OldPage:Destroy()
+end
+
+local OldSetButton =
+    Main:FindFirstChild(
+        "SetEggPosition"
+    )
+
+if OldSetButton then
+    OldSetButton:Destroy()
+end
+
+--========================================================
+-- TAB BAR
+--========================================================
+
+local Tabs =
+    Instance.new("Frame")
+
+Tabs.Name =
+    "MA_EGG_TABS"
+
+Tabs.Size =
+    UDim2.new(1,-20,0,36)
+
+Tabs.Position =
+    UDim2.new(0,10,0,48)
+
+Tabs.BackgroundTransparency = 1
+Tabs.Parent = Main
+
+local TabLayout =
+    Instance.new("UIListLayout")
+
+TabLayout.FillDirection =
+    Enum.FillDirection.Horizontal
+
+TabLayout.Padding =
+    UDim.new(0,5)
+
+TabLayout.Parent = Tabs
+
+--========================================================
+-- TAB NHÌN
+--========================================================
+
+local SeeButton =
+    Instance.new("TextButton")
+
+SeeButton.Size =
+    UDim2.new(0.5,-3,1,0)
+
+SeeButton.BackgroundColor3 =
+    Color3.fromRGB(
+        100,55,190
+    )
+
+SeeButton.BorderSizePixel = 0
+
+SeeButton.Text =
+    "👁 NHÌN TRỨNG"
+
+SeeButton.TextColor3 =
+    Color3.new(1,1,1)
+
+SeeButton.Font =
+    Enum.Font.GothamBold
+
+SeeButton.TextSize = 11
+
+SeeButton.Parent = Tabs
+
+local SeeCorner =
+    Instance.new("UICorner")
+
+SeeCorner.CornerRadius =
+    UDim.new(0,8)
+
+SeeCorner.Parent =
+    SeeButton
+
+--========================================================
+-- TAB LẤY
+--========================================================
+
+local TakeButton =
+    Instance.new("TextButton")
+
+TakeButton.Size =
+    UDim2.new(0.5,-3,1,0)
+
+TakeButton.BackgroundColor3 =
+    Color3.fromRGB(
+        45,35,75
+    )
+
+TakeButton.BorderSizePixel = 0
+
+TakeButton.Text =
+    "🥚 LẤY TRỨNG"
+
+TakeButton.TextColor3 =
+    Color3.new(1,1,1)
+
+TakeButton.Font =
+    Enum.Font.GothamBold
+
+TakeButton.TextSize = 11
+
+TakeButton.Parent = Tabs
+
+local TakeCorner =
+    Instance.new("UICorner")
+
+TakeCorner.CornerRadius =
+    UDim.new(0,8)
+
+TakeCorner.Parent =
+    TakeButton
+
+--========================================================
+-- LIST NHÌN
+--========================================================
+
+OldList.Position =
+    UDim2.new(0,10,0,90)
+
+OldList.Size =
+    UDim2.new(1,-20,1,-100)
+
+--========================================================
+-- TRANG LẤY TRỨNG
+--========================================================
+
+local TakePage =
+    Instance.new("ScrollingFrame")
+
+TakePage.Name =
+    "MA_TAKE_EGG_PAGE"
+
+TakePage.Size =
+    UDim2.new(1,-20,1,-100)
+
+TakePage.Position =
+    UDim2.new(0,10,0,90)
+
+TakePage.BackgroundTransparency = 1
+
+TakePage.BorderSizePixel = 0
+
+TakePage.ScrollBarThickness = 4
+
+TakePage.Visible = false
+
+TakePage.Parent = Main
+
+local TakeLayout =
+    Instance.new("UIListLayout")
+
+TakeLayout.Padding =
+    UDim.new(0,6)
+
+TakeLayout.SortOrder =
+    Enum.SortOrder.LayoutOrder
+
+TakeLayout.Parent = TakePage
+
+--========================================================
+-- DATA
+--========================================================
+
+local EggRows = {}
+
+local Busy = false
+
+-- VỊ TRÍ NGƯỜI CHƠI MUỐN QUAY VỀ
+local EggPickupPosition = nil
+
+--========================================================
+-- ROOT
+--========================================================
+
+local function GetRoot()
+
+    local Character =
+        Player.Character
+        or Player.CharacterAdded:Wait()
+
+    return Character:FindFirstChild(
+        "HumanoidRootPart"
+    )
+
+end
+
+--========================================================
+-- NÚT ĐẶT VỊ TRÍ
+--========================================================
+
+local SetPositionButton =
+    Instance.new("TextButton")
+
+SetPositionButton.Name =
+    "SetEggPosition"
+
+SetPositionButton.Size =
+    UDim2.new(1,-5,0,38)
+
+SetPositionButton.BackgroundColor3 =
+    Color3.fromRGB(
+        65,45,100
+    )
+
+SetPositionButton.BorderSizePixel = 0
+
+SetPositionButton.Text =
+    "📍 ĐẶT VỊ TRÍ LẤY TRỨNG"
+
+SetPositionButton.TextColor3 =
+    Color3.new(1,1,1)
+
+SetPositionButton.Font =
+    Enum.Font.GothamBold
+
+SetPositionButton.TextSize = 11
+
+SetPositionButton.LayoutOrder = -100
+
+SetPositionButton.Parent =
+    TakePage
+
+local SetCorner =
+    Instance.new("UICorner")
+
+SetCorner.CornerRadius =
+    UDim.new(0,8)
+
+SetCorner.Parent =
+    SetPositionButton
+
+--========================================================
+-- BẤM ĐẶT VỊ TRÍ
+--========================================================
+
+SetPositionButton.Activated:Connect(function()
+
+    local Root =
+        GetRoot()
+
+    if not Root then
+
+        SetPositionButton.Text =
+            "❌ KHÔNG TÌM THẤY NHÂN VẬT"
+
+        task.wait(1)
+
+        if SetPositionButton.Parent then
+
+            SetPositionButton.Text =
+                "📍 ĐẶT VỊ TRÍ LẤY TRỨNG"
+
+        end
+
+        return
+
+    end
+
+    -- Lưu đúng vị trí + hướng
+    EggPickupPosition =
+        Root.CFrame
+
+    SetPositionButton.Text =
+        "✅ ĐẶT THÀNH CÔNG"
+
+    task.wait(1.2)
+
+    if SetPositionButton.Parent then
+
+        SetPositionButton.Text =
+            "📍 ĐẶT VỊ TRÍ LẤY TRỨNG"
+
+    end
+
+end)
+
+--========================================================
+-- TÌM PROMPT
+--========================================================
+
+local function FindPrompt(Egg)
+
+    if not Egg
+        or not Egg.Parent then
+
+        return nil
+
+    end
+
+    local Prompt =
+        Egg:FindFirstChildWhichIsA(
+            "ProximityPrompt",
+            true
+        )
+
+    if Prompt then
+        return Prompt
+    end
+
+    local Position =
+        Egg:GetAttribute("Position")
+
+    if typeof(Position) ~= "Vector3" then
+        return nil
+    end
+
+    for _,Object in ipairs(
+        workspace:GetDescendants()
+    ) do
+
+        if Object:IsA(
+            "ProximityPrompt"
+        ) then
+
+            local Parent =
+                Object.Parent
+
+            if Parent
+                and Parent:IsA(
+                    "BasePart"
+                ) then
+
+                if (
+                    Parent.Position
+                    - Position
+                ).Magnitude <= 8 then
+
+                    return Object
+
+                end
+
+            end
+
+        end
+
+    end
+
+    return nil
+
+end
+
+--========================================================
+-- NHẶT TRỨNG
+-- TELE TỚI TRỨNG
+-- NHẶT
+-- QUAY VỀ CHỖ ĐÃ ĐẶT
+--========================================================
+
+local function PickEgg(
+    Egg,
+    Button
+)
+
+    if Busy then
+        return
+    end
+
+    -- Bắt buộc phải đặt vị trí
+    if not EggPickupPosition then
+
+        Button.Text =
+            "⚠ CHƯA ĐẶT VỊ TRÍ"
+
+        task.wait(1)
+
+        if Button.Parent then
+            Button.Text = "🥚 NHẶT"
+        end
+
+        return
+
+    end
+
+    if not Egg
+        or not Egg.Parent then
+
+        Button.Text =
+            "❌ KHÔNG CÒN"
+
+        task.wait(0.6)
+
+        if Button.Parent then
+            Button.Text = "🥚 NHẶT"
+        end
+
+        return
+
+    end
+
+    local Root =
+        GetRoot()
+
+    if not Root then
+        return
+    end
+
+    local Position =
+        Egg:GetAttribute(
+            "Position"
+        )
+
+    if typeof(Position)
+        ~= "Vector3" then
+
+        Button.Text =
+            "❌ KHÔNG CÓ VỊ TRÍ"
+
+        task.wait(0.7)
+
+        if Button.Parent then
+            Button.Text = "🥚 NHẶT"
+        end
+
+        return
+
+    end
+
+    Busy = true
+
+    -- Giữ lại vị trí cần quay về
+    local ReturnCFrame =
+        EggPickupPosition
+
+    --====================================================
+    -- TELE TỚI TRỨNG
+    --====================================================
+
+    Button.Text =
+        "⚡ TELE TỚI TRỨNG..."
+
+    Root.CFrame =
+        CFrame.new(
+            Position
+            + Vector3.new(0,3,0)
+        )
+
+    task.wait(0.5)
+
+    --====================================================
+    -- TÌM PROMPT
+    --====================================================
+
+    local Prompt =
+        FindPrompt(Egg)
+
+    if Prompt then
+
+        Button.Text =
+            "🥚 ĐANG NHẶT..."
+
+        --================================================
+        -- FIRE PROMPT
+        --================================================
+
+        if typeof(
+            fireproximityprompt
+        ) == "function" then
+
+            pcall(function()
+
+                fireproximityprompt(
+                    Prompt
+                )
+
+            end)
+
+        else
+
+            pcall(function()
+
+                Prompt:InputHoldBegin()
+
+                task.wait(
+                    math.max(
+                        Prompt.HoldDuration,
+                        0.15
+                    )
+                )
+
+                Prompt:InputHoldEnd()
+
+            end)
+
+        end
+
+        task.wait(0.7)
+
+        --================================================
+        -- QUAY VỀ CHỖ ĐÃ ĐẶT
+        --================================================
+
+        if Root
+            and Root.Parent then
+
+            Button.Text =
+                "↩ ĐANG VỀ CHỖ ĐẶT..."
+
+            Root.CFrame =
+                ReturnCFrame
+
+            task.wait(0.5)
+
+            Button.Text =
+                "✅ THÀNH CÔNG"
+
+        end
+
+    else
+
+        Button.Text =
+            "⚠ KHÔNG CÓ PROMPT"
+
+        task.wait(0.5)
+
+        -- Dù không tìm được prompt
+        -- vẫn quay về chỗ đặt
+
+        if Root
+            and Root.Parent then
+
+            Root.CFrame =
+                ReturnCFrame
+
+        end
+
+    end
+
+    Busy = false
+
+    task.wait(0.7)
+
+    if Button
+        and Button.Parent then
+
+        Button.Text =
+            "🥚 NHẶT"
+
+    end
+
+end
+
+--========================================================
+-- TẠO 1 LOẠI TRỨNG
+--========================================================
+
+local function CreateEggRow(Egg)
+
+    if not Egg
+        or not Egg.Parent then
+
+        return
+
+    end
+
+    local EggName,Luck =
+        GetEggInfo(Egg)
+
+    if not EggName then
+        return
+    end
+
+    -- Không tạo trùng loại
+    for ExistingEgg,Data in pairs(
+        EggRows
+    ) do
+
+        if ExistingEgg
+            and ExistingEgg.Parent then
+
+            local ExistingName =
+                ExistingEgg:GetAttribute(
+                    "Egg"
+                )
+
+            if ExistingName
+                == EggName then
+
+                return
+
+            end
+
+        end
+
+    end
+
+    --====================================================
+    -- ROW
+    --====================================================
+
+    local Row =
+        Instance.new("Frame")
+
+    Row.Name =
+        "Egg_"
+        .. tostring(EggName)
+
+    Row.Size =
+        UDim2.new(1,-5,0,58)
+
+    Row.BackgroundColor3 =
+        Color3.fromRGB(
+            40,30,65
+        )
+
+    Row.BorderSizePixel = 0
+
+    Row.Parent =
+        TakePage
+
+    local Corner =
+        Instance.new("UICorner")
+
+    Corner.CornerRadius =
+        UDim.new(0,9)
+
+    Corner.Parent = Row
+
+    --====================================================
+    -- THÔNG TIN
+    --====================================================
+
+    local Info =
+        Instance.new("TextLabel")
+
+    Info.BackgroundTransparency = 1
+
+    Info.Position =
+        UDim2.new(0,10,0,4)
+
+    Info.Size =
+        UDim2.new(1,-88,1,-8)
+
+    Info.Text =
+        "🥚 "
+        .. tostring(EggName)
+        .. "\n🍀 Luck: "
+        .. FormatNumber(Luck)
+
+    Info.TextColor3 =
+        Color3.new(1,1,1)
+
+    Info.Font =
+        Enum.Font.GothamBold
+
+    Info.TextSize = 11
+
+    Info.TextXAlignment =
+        Enum.TextXAlignment.Left
+
+    Info.TextYAlignment =
+        Enum.TextYAlignment.Center
+
+    Info.Parent = Row
+
+    --====================================================
+    -- NÚT NHẶT
+    --====================================================
+
+    local Button =
+        Instance.new("TextButton")
+
+    Button.Size =
+        UDim2.new(0,68,0,34)
+
+    Button.Position =
+        UDim2.new(
+            1,-74,
+            0.5,-17
+        )
+
+    Button.BackgroundColor3 =
+        Color3.fromRGB(
+            100,55,190
+        )
+
+    Button.BorderSizePixel = 0
+
+    Button.Text =
+        "🥚 NHẶT"
+
+    Button.TextColor3 =
+        Color3.new(1,1,1)
+
+    Button.Font =
+        Enum.Font.GothamBold
+
+    Button.TextSize = 10
+
+    Button.Parent = Row
+
+    local ButtonCorner =
+        Instance.new("UICorner")
+
+    ButtonCorner.CornerRadius =
+        UDim.new(0,8)
+
+    ButtonCorner.Parent =
+        Button
+
+    EggRows[Egg] = {
+
+        Row = Row,
+
+        Button = Button,
+
+        EggName = EggName
+
+    }
+
+    --====================================================
+    -- BẤM NHẶT
+    --====================================================
+
+    Button.Activated:Connect(function()
+
+        if Busy then
+            return
+        end
+
+        local TargetEgg
+
+        -- Tìm lại trứng cùng loại
+        for _,CurrentEgg in ipairs(
+            ActiveEggs:GetChildren()
+        ) do
+
+            local CurrentName =
+                CurrentEgg:GetAttribute(
+                    "Egg"
+                )
+
+            if CurrentName
+                == EggName then
+
+                TargetEgg =
+                    CurrentEgg
+
+                break
+
+            end
+
+        end
+
+        if not TargetEgg then
+
+            Button.Text =
+                "❌ KHÔNG CÒN"
+
+            task.wait(0.5)
+
+            RefreshEggs()
+
+            return
+
+        end
+
+        PickEgg(
+            TargetEgg,
+            Button
+        )
+
+    end)
+
+end
+
+--========================================================
+-- REFRESH
+-- MỖI LOẠI TRỨNG CHỈ 1 DÒNG
+--========================================================
+
+function RefreshEggs()
+
+    -- Xóa danh sách cũ
+    for Egg,Data in pairs(
+        EggRows
+    ) do
+
+        if Data.Row then
+            Data.Row:Destroy()
+        end
+
+    end
+
+    EggRows = {}
+
+    --====================================================
+    -- LẤY 1 ĐẠI DIỆN CHO MỖI LOẠI
+    --====================================================
+
+    local EggTypes = {}
+
+    for _,Egg in ipairs(
+        ActiveEggs:GetChildren()
+    ) do
+
+        local EggName =
+            Egg:GetAttribute(
+                "Egg"
+            )
+
+        if EggName
+            and not EggTypes[EggName] then
+
+            EggTypes[EggName] =
+                Egg
+
+        end
+
+    end
+
+    --====================================================
+    -- TẠO MENU
+    --====================================================
+
+    for _,Egg in pairs(
+        EggTypes
+    ) do
+
+        CreateEggRow(Egg)
+
+    end
+
+    task.defer(function()
+
+        TakePage.CanvasSize =
+            UDim2.new(
+                0,
+                0,
+                0,
+                TakeLayout
+                    .AbsoluteContentSize
+                    .Y
+                + 10
+            )
+
+    end)
+
+end
+
+--========================================================
+-- TAB NHÌN
+--========================================================
+
+SeeButton.Activated:Connect(function()
+
+    OldList.Visible = true
+
+    TakePage.Visible = false
+
+    SeeButton.BackgroundColor3 =
+        Color3.fromRGB(
+            100,55,190
+        )
+
+    TakeButton.BackgroundColor3 =
+        Color3.fromRGB(
+            45,35,75
+        )
+
+end)
+
+--========================================================
+-- TAB LẤY
+--========================================================
+
+TakeButton.Activated:Connect(function()
+
+    OldList.Visible = false
+
+    TakePage.Visible = true
+
+    SeeButton.BackgroundColor3 =
+        Color3.fromRGB(
+            45,35,75
+        )
+
+    TakeButton.BackgroundColor3 =
+        Color3.fromRGB(
+            100,55,190
+        )
+
+    RefreshEggs()
+
+end)
+
+--========================================================
+-- TRỨNG THÊM
+--========================================================
+
+ActiveEggs.ChildAdded:Connect(function()
+
+    task.wait(0.1)
+
+    RefreshEggs()
+
+end)
+
+--========================================================
+-- TRỨNG XÓA
+--========================================================
+
+ActiveEggs.ChildRemoved:Connect(function()
+
+    task.wait(0.1)
+
+    RefreshEggs()
+
+end)
+
+--========================================================
+-- START
+--==================================
