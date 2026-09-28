@@ -291,16 +291,130 @@ TakeCorner.CornerRadius =
     UDim.new(0,8)
 
 TakeCorner.Parent = TakeButton
+--========================================================
+-- VỊ TRÍ NHÀ / CHỖ CŨ
+--========================================================
 
+local PositionBar = Instance.new("Frame")
+PositionBar.Name = "MA_POSITION_BAR"
+PositionBar.Size = UDim2.new(1,-20,0,70)
+PositionBar.Position = UDim2.new(0,10,0,90)
+PositionBar.BackgroundTransparency = 1
+PositionBar.BorderSizePixel = 0
+PositionBar.Parent = Main
+
+local PositionLayout = Instance.new("UIListLayout")
+PositionLayout.FillDirection = Enum.FillDirection.Horizontal
+PositionLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+PositionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+PositionLayout.Padding = UDim.new(0,4)
+PositionLayout.Parent = PositionBar
+
+local function MakePositionButton(Name,Text)
+
+    local Button = Instance.new("TextButton")
+
+    Button.Name = Name
+    Button.Size = UDim2.new(0.25,-3,0,30)
+    Button.BackgroundColor3 = Color3.fromRGB(45,35,75)
+    Button.BorderSizePixel = 0
+    Button.Text = Text
+    Button.TextColor3 = Color3.new(1,1,1)
+    Button.Font = Enum.Font.GothamBold
+    Button.TextSize = 9
+    Button.Parent = PositionBar
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0,7)
+    Corner.Parent = Button
+
+    return Button
+end
+
+local SaveHomeButton =
+    MakePositionButton("SaveHome","🏠 LƯU NHÀ")
+
+local SaveOldButton =
+    MakePositionButton("SaveOld","📍 LƯU CHỖ CŨ")
+
+local HomeButton =
+    MakePositionButton("Home","🏠 VỀ NHÀ")
+
+local OldButton =
+    MakePositionButton("Old","📍 VỀ CHỖ CŨ")
+
+SaveHomeButton.Activated:Connect(function()
+
+    local Root = GetRoot()
+
+    if not Root then return end
+
+    SavedHomeCFrame = Root.CFrame
+    ReturnMode = "HOME"
+
+    SaveHomeButton.Visible = false
+
+end)
+
+SaveOldButton.Activated:Connect(function()
+
+    local Root = GetRoot()
+
+    if not Root then return end
+
+    SavedOldCFrame = Root.CFrame
+    ReturnMode = "OLD"
+
+    SaveOldButton.Text = "✅ ĐÃ LƯU"
+
+end)
+
+HomeButton.Activated:Connect(function()
+
+    if not SavedHomeCFrame then
+        HomeButton.Text = "❌ CHƯA LƯU"
+        task.wait(0.8)
+        HomeButton.Text = "🏠 VỀ NHÀ"
+        return
+    end
+
+    ReturnMode = "HOME"
+
+    local Root = GetRoot()
+
+    if Root then
+        Root.CFrame = SavedHomeCFrame
+    end
+
+end)
+
+OldButton.Activated:Connect(function()
+
+    if not SavedOldCFrame then
+        OldButton.Text = "❌ CHƯA LƯU"
+        task.wait(0.8)
+        OldButton.Text = "📍 VỀ CHỖ CŨ"
+        return
+    end
+
+    ReturnMode = "OLD"
+
+    local Root = GetRoot()
+
+    if Root then
+        Root.CFrame = SavedOldCFrame
+    end
+
+end)
 --========================================================
 -- LIST NHÌN
 --========================================================
 
 OldList.Position =
-    UDim2.new(0,10,0,90)
+    UDim2.new(0,10,0,166)
 
 OldList.Size =
-    UDim2.new(1,-20,1,-100)
+    UDim2.new(1,-20,1,-176)
 
 --========================================================
 -- TRANG LẤY TRỨNG
@@ -345,6 +459,10 @@ TakeLayout.Parent = TakePage
 
 local EggRows = {}
 local Busy = false
+
+local SavedHomeCFrame = nil
+local SavedOldCFrame = nil
+local ReturnMode = "OLD"
 
 --========================================================
 -- ROOT
@@ -447,8 +565,6 @@ local function PickEgg(Egg, Button)
     Busy = true
 
     -- LƯU VỊ TRÍ
-    local OldCFrame =
-        Root.CFrame
 
     -- TELE
     Button.Text =
@@ -510,18 +626,28 @@ local function PickEgg(Egg, Button)
         task.wait(1)
     end
 
-    -- TELE VỀ
-    if Root and Root.Parent then
 
-        Button.Text =
-            "↩ TELE VỀ..."
+    -- TELE VỀ THEO CHẾ ĐỘ
+if Root and Root.Parent then
 
-        Root.CFrame =
-            OldCFrame
+    local ReturnCFrame = nil
 
-        task.wait(0.3)
+    if ReturnMode == "HOME" then
+        ReturnCFrame = SavedHomeCFrame
+    elseif ReturnMode == "OLD" then
+        ReturnCFrame = SavedOldCFrame
     end
 
+    if ReturnCFrame then
+        Button.Text = "↩ TELE VỀ..."
+        Root.CFrame = ReturnCFrame
+        task.wait(0.3)
+    else
+        Button.Text = "⚠ CHƯA LƯU VỊ TRÍ"
+        task.wait(0.8)
+    end
+
+end
     Busy = false
 
     if Button and Button.Parent then
