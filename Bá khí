@@ -14,20 +14,8 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 -- GAME DATA
 --========================================================
 
-local ServerData = nil
-local ActiveEggs = nil
-
-task.spawn(function()
-    while not ServerData do
-        ServerData = ReplicatedStorage:FindFirstChild("ServerData")
-        task.wait(0.25)
-    end
-
-    while not ActiveEggs do
-        ActiveEggs = ServerData:FindFirstChild("ActiveEggs")
-        task.wait(0.25)
-    end
-end)
+local ServerData = ReplicatedStorage:WaitForChild("ServerData")
+local ActiveEggs = ServerData:WaitForChild("ActiveEggs")
 
 local EggsModule
 
