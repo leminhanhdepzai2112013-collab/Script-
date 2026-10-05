@@ -1,0 +1,170 @@
+local P = game:GetService("Players")
+local p = P.LocalPlayer
+
+local V1 = "https://rawscripts.net/raw/Universal-Script-Rick-c-137-portal-gun-bye-me-224661"
+local V2 = "https://rawscripts.net/raw/Universal-Script-Rick-And-Morty-Portal-Gun-226219"
+
+-- BẢN 1
+loadstring(game:HttpGet(V1))()
+
+-- Chờ tối thiểu để bản 1 tạo súng/menu
+task.wait(0.5)
+
+-- XÓA MENU BẢN 1
+local function removeV1Menu()
+    pcall(function()
+        local pg = p:FindFirstChild("PlayerGui")
+        if pg then
+            local x = pg:FindFirstChild("RickPortalMenuV16_Fix")
+            if x then x:Destroy() end
+        end
+
+        if gethui then
+            local h = gethui()
+            local x = h:FindFirstChild("RickPortalMenuV16_Fix")
+            if x then x:Destroy() end
+        end
+    end)
+end
+
+removeV1Menu()
+
+local gun
+local oldTools = {}
+local newGui = {}
+
+-- Lưu Tool cũ
+local function saveTools()
+    local c = p.Character
+    local b = p:FindFirstChild("Backpack")
+
+    for _,box in ipairs({c,b}) do
+        if box then
+            for _,v in ipairs(box:GetChildren()) do
+                if v:IsA("Tool") then
+                    oldTools[v] = true
+                end
+            end
+        end
+    end
+end
+
+saveTools()
+
+-- Tìm súng
+local function findGun()
+    local c = p.Character
+    if not c then return end
+
+    for _,v in ipairs(c:GetChildren()) do
+        if v:IsA("Tool") and oldTools[v] then
+            gun = v
+            return
+        end
+    end
+end
+
+findGun()
+
+-- Lưu GUI trước bản 2
+local function containers()
+    local t = {}
+    local pg = p:FindFirstChild("PlayerGui")
+    if pg then table.insert(t,pg) end
+
+    if gethui then
+        pcall(function()
+            table.insert(t,gethui())
+        end)
+    end
+
+    return t
+end
+
+local before = {}
+
+for _,gui in ipairs(containers()) do
+    for _,v in ipairs(gui:GetChildren()) do
+        before[v] = true
+    end
+end
+
+-- BẢN 2
+pcall(function()
+    loadstring(game:HttpGet(V2))()
+end)
+
+-- Giảm thời gian chờ
+task.wait(0.3)
+
+-- Lấy GUI bản 2
+for _,gui in ipairs(containers()) do
+    for _,v in ipairs(gui:GetChildren()) do
+        if not before[v] then
+            table.insert(newGui,v)
+        end
+    end
+end
+
+-- Xóa súng phụ
+local function removeExtraTools()
+    local c = p.Character
+    local b = p:FindFirstChild("Backpack")
+
+    for _,box in ipairs({c,b}) do
+        if box then
+            for _,v in ipairs(box:GetChildren()) do
+                if v:IsA("Tool") and not oldTools[v] then
+                    v:Destroy()
+                end
+            end
+        end
+    end
+end
+
+removeExtraTools()
+
+-- Hiện/ẩn GUI bản 2
+local function showGUI(on)
+    for _,v in ipairs(newGui) do
+        if v and v.Parent then
+            pcall(function()
+                if v:IsA("ScreenGui") then
+                    v.Enabled = on
+                elseif v:IsA("GuiObject") then
+                    v.Visible = on
+                end
+            end)
+        end
+    end
+end
+
+showGUI(false)
+
+-- Kết nối súng
+local function setup()
+    findGun()
+    if not gun or gun:GetAttribute("Merged") then return end
+
+    gun:SetAttribute("Merged",true)
+
+    gun.Equipped:Connect(function()
+        showGUI(true)
+    end)
+
+    gun.Unequipped:Connect(function()
+        showGUI(false)
+    end)
+end
+
+setup()
+
+-- Quét nhanh hơn nhưng nhẹ
+task.spawn(function()
+    while task.wait(0.25) do
+        if not gun or not gun.Parent then
+            setup()
+        end
+        removeExtraTools()
+    end
+end)
