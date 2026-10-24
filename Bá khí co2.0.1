@@ -1,0 +1,550 @@
+local ENV = _G
+if typeof(getgenv) == "function" then ENV = getgenv() end
+local D = ENV.MA_DATA
+
+if not D or not D.GUI then
+    pcall(function()
+        local sg = Instance.new("ScreenGui")
+        local b = Instance.new("TextLabel")
+        b.Size = UDim2.new(0.9, 0, 0, 60)
+        b.Position = UDim2.new(0.05, 0, 0, 10)
+        b.BackgroundColor3 = Color3.fromRGB(120, 30, 40)
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.TextWrapped = true
+        b.TextSize = 12
+        b.Text = "LỖI: chưa chạy Phần 1 (hoặc Phần 1 bị lỗi)"
+        b.Parent = sg
+        local ok = pcall(function() sg.Parent = game:GetService("CoreGui") end)
+        if not ok then sg.Parent = game:GetService("Players").LocalPlayer.PlayerGui end
+        task.delay(20, function() sg:Destroy() end)
+    end)
+    return
+end
+
+-- [THÊM] D.Status dự phòng
+if type(D.Status) ~= "function" then
+    D.Status = function(msg) warn(msg) end
+end
+
+local function Build()
+    local GUI = D.GUI
+
+    -- [SỬA] Settings: tốc độ tối đa 1000
+    D.Settings = D.Settings or {}
+    local Settings = D.Settings
+    Settings.MaxSpeed = 1000
+    Settings.MinSpeed = tonumber(Settings.MinSpeed) or 20
+    Settings.SpeedStep = tonumber(Settings.SpeedStep) or 50
+    Settings.Speed = math.clamp(tonumber(Settings.Speed) or 300, Settings.MinSpeed, Settings.MaxSpeed)
+
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local Player = game:GetService("Players").LocalPlayer
+
+    local Busy, HomeCFrame = false, nil
+    local RefreshEggs
+
+    for _, v in ipairs(GUI:GetDescendants()) do
+        if v.Name == "MA_EGG_TABS" or v.Name == "MA_TAKE_EGG_PAGE" then
+            v:Destroy()
+        end
+    end
+
+    -- tim khung chinh va danh sach
+    local Main, OldList
+    for _, v in ipairs(GUI:GetChildren()) do
+        if v:IsA("Frame") then
+            for _, c in ipairs(v:GetChildren()) do
+                if c:IsA("ScrollingFrame") then
+                    Main, OldList = v, c
+                    break
+                end
+            end
+            if OldList then break end
+        end
+    end
+    if not OldList then
+        for _, v in ipairs(GUI:GetDescendants()) do
+            if v:IsA("ScrollingFrame") then
+                OldList = v
+                Main = v.Parent
+                break
+            end
+        end
+    end
+    if not Main or not OldList then
+        D.Status("Phần 2 LỖI: không tìm thấy khung/danh sách trong menu gốc", true)
+        return
+    end
+
+    local ServerData = ReplicatedStorage:WaitForChild("ServerData", 10)
+    local ActiveEggs = ServerData and ServerData:WaitForChild("ActiveEggs", 10)
+    if not ActiveEggs then
+        D.Status("Phần 2 LỖI: không thấy ServerData.ActiveEggs (sai game?)", true)
+        return
+    end
+
+    local EggsModule
+    pcall(function()
+        EggsModule = require(
+            ReplicatedStorage:WaitForChild("GameData", 5):WaitForChild("Eggs", 5)
+        )
+    end)
+
+    local function FormatNumber(n)
+        n = tonumber(n) or 0
+        if n >= 1e12 then return string.format("%.2fT", n / 1e12)
+        elseif n >= 1e9 then return string.format("%.2fB", n / 1e9)
+        elseif n >= 1e6 then return string.format("%.2fM", n / 1e6)
+        elseif n >= 1e3 then return string.format("%.2fK", n / 1e3)
+        end
+        return tostring(n)
+    end
+
+    local function GetEggInfo(Egg)
+        local EggName = Egg and Egg:GetAttribute("Egg")
+        if not EggName then return nil, 0 end
+        local Luck = tonumber(Egg:GetAttribute("Luck")) or 0
+        if EggsModule then
+            pcall(function()
+                local Data = EggsModule[EggName]
+                if type(Data) == "table" then
+                    Luck = tonumber(Data.Luck) or Luck
+                end
+            end)
+        end
+        return EggName, Luck
+    end
+
+    local function GetChar()
+        local Character = Player.Character or Player.CharacterAdded:Wait()
+        return Character:FindFirstChild("HumanoidRootPart"),
+            Character:FindFirstChildOfClass("Humanoid")
+    end
+
+    local function Style(Obj, Radius)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, Radius or 8)
+        c.Parent = Obj
+    end
+
+    local function MakeButton(Parent, Text, Color, Size, Pos)
+        local b = Instance.new("TextButton")
+        b.Size = Size
+        if Pos then b.Position = Pos end
+        b.BackgroundColor3 = Color
+        b.BorderSizePixel = 0
+        b.Text = Text
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 11
+        b.Parent = Parent
+        Style(b, 8)
+        return b
+    end
+
+    local ON = Color3.fromRGB(100, 55, 190)
+    local OFF = Color3.fromRGB(45, 35, 75)
+    local MID = Color3.fromRGB(65, 45, 100)
+
+    -- [THÊM] bay thẳng xuyên tường (noclip), trả về true nếu tới nơi
+    local function FlyTo(Root, Target, OnUpdate)
+        local Char = Root.Parent
+        local Saved = {}
+        for _, p in ipairs(Char:GetDescendants()) do
+            if p:IsA("BasePart") then Saved[p] = p.CanCollide end
+        end
+
+        local NoclipConn = RunService.Stepped:Connect(function()
+            for p in pairs(Saved) do
+                if p.Parent then p.CanCollide = false end
+            end
+        end)
+
+        local Reached = false
+        while Root.Parent and not D.Cancel do
+            local dt = RunService.Heartbeat:Wait()
+            local Delta = Target - Root.Position
+            local Dist = Delta.Magnitude
+            if Dist <= 2 then
+                Reached = true
+                break
+            end
+            local Step = math.min(Settings.Speed * dt, Dist)
+            Root.CFrame = Root.CFrame + Delta.Unit * Step
+            Root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            if OnUpdate then OnUpdate(Dist) end
+        end
+
+        NoclipConn:Disconnect()
+        for p, v in pairs(Saved) do
+            if p.Parent then p.CanCollide = v end
+        end
+        if Root.Parent then
+            Root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        end
+        return Reached
+    end
+
+    -- tab bar
+    local Tabs = Instance.new("Frame")
+    Tabs.Name = "MA_EGG_TABS"
+    Tabs.Size = UDim2.new(1, -20, 0, 36)
+    Tabs.Position = UDim2.new(0, 10, 0, 48)
+    Tabs.BackgroundTransparency = 1
+    Tabs.Parent = Main
+
+    local TabLayout = Instance.new("UIListLayout")
+    TabLayout.FillDirection = Enum.FillDirection.Horizontal
+    TabLayout.Padding = UDim.new(0, 5)
+    TabLayout.Parent = Tabs
+
+    local SeeButton = MakeButton(Tabs, "NHÌN TRỨNG", ON, UDim2.new(0.5, -3, 1, 0))
+    local TakeButton = MakeButton(Tabs, "LẤY TRỨNG", OFF, UDim2.new(0.5, -3, 1, 0))
+
+    OldList.Position = UDim2.new(0, 10, 0, 90)
+    OldList.Size = UDim2.new(1, -20, 1, -100)
+
+    -- trang lay trung
+    local TakePage = Instance.new("ScrollingFrame")
+    TakePage.Name = "MA_TAKE_EGG_PAGE"
+    TakePage.Size = UDim2.new(1, -20, 1, -100)
+    TakePage.Position = UDim2.new(0, 10, 0, 90)
+    TakePage.BackgroundTransparency = 1
+    TakePage.BorderSizePixel = 0
+    TakePage.ScrollBarThickness = 4
+    TakePage.Visible = false
+    TakePage.Parent = Main
+
+    local TakeLayout = Instance.new("UIListLayout")
+    TakeLayout.Padding = UDim.new(0, 6)
+    TakeLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    TakeLayout.Parent = TakePage
+
+    -- dat vi tri nha
+    local SetBtn = MakeButton(TakePage, "ĐẶT VỊ TRÍ LẤY TRỨNG", MID, UDim2.new(1, -5, 0, 38))
+    SetBtn.LayoutOrder = -100
+
+    SetBtn.Activated:Connect(function()
+        local Root = GetChar()
+        if not Root then
+            SetBtn.Text = "KHÔNG TÌM THẤY NHÂN VẬT"
+        else
+            HomeCFrame = Root.CFrame
+            SetBtn.Text = "ĐẶT THÀNH CÔNG"
+        end
+        task.wait(1.2)
+        if SetBtn.Parent then SetBtn.Text = "ĐẶT VỊ TRÍ LẤY TRỨNG" end
+    end)
+
+    -- chinh toc do
+    local SpeedRow = Instance.new("Frame")
+    SpeedRow.Size = UDim2.new(1, -5, 0, 38)
+    SpeedRow.BackgroundTransparency = 1
+    SpeedRow.LayoutOrder = -90
+    SpeedRow.Parent = TakePage
+
+    local MinusBtn = MakeButton(SpeedRow, "-", MID, UDim2.new(0, 40, 1, 0), UDim2.new(0, 0, 0, 0))
+    local PlusBtn = MakeButton(SpeedRow, "+", MID, UDim2.new(0, 40, 1, 0), UDim2.new(1, -40, 0, 0))
+    MinusBtn.TextSize = 18
+    PlusBtn.TextSize = 18
+
+    local SpeedBox = Instance.new("TextBox")
+    SpeedBox.Size = UDim2.new(1, -92, 1, 0)
+    SpeedBox.Position = UDim2.new(0, 46, 0, 0)
+    SpeedBox.BackgroundColor3 = Color3.fromRGB(40, 30, 65)
+    SpeedBox.BorderSizePixel = 0
+    SpeedBox.TextColor3 = Color3.new(1, 1, 1)
+    SpeedBox.Font = Enum.Font.GothamBold
+    SpeedBox.TextSize = 11
+    SpeedBox.ClearTextOnFocus = false
+    SpeedBox.Parent = SpeedRow
+    Style(SpeedBox, 8)
+
+    local function ShowSpeed()
+        SpeedBox.Text = "Tốc độ bay: " .. tostring(Settings.Speed)
+    end
+
+    local function SetSpeed(n)
+        n = tonumber(n)
+        if not n then ShowSpeed() return end
+        Settings.Speed = math.clamp(math.floor(n), Settings.MinSpeed, Settings.MaxSpeed)
+        ShowSpeed()
+    end
+
+    MinusBtn.Activated:Connect(function() SetSpeed(Settings.Speed - Settings.SpeedStep) end)
+    PlusBtn.Activated:Connect(function() SetSpeed(Settings.Speed + Settings.SpeedStep) end)
+    SpeedBox.FocusLost:Connect(function()
+        SetSpeed(string.match(SpeedBox.Text, "%d+"))
+    end)
+    ShowSpeed()
+
+    -- [SỬA] nut dung: chi dung bay, khong tele ve nha
+    local StopBtn = MakeButton(TakePage, "DỪNG BAY", Color3.fromRGB(140, 45, 60), UDim2.new(1, -5, 0, 34))
+    StopBtn.LayoutOrder = -70
+    StopBtn.Activated:Connect(function()
+        if Busy then D.Cancel = true end
+    end)
+
+    -- tim prompt
+    local function FindPrompt(Egg)
+        if not Egg or not Egg.Parent then return nil end
+        local Prompt = Egg:FindFirstChildWhichIsA("ProximityPrompt", true)
+        if Prompt then return Prompt end
+
+        local Position = Egg:GetAttribute("Position")
+        if typeof(Position) ~= "Vector3" then return nil end
+
+        for _, Object in ipairs(workspace:GetDescendants()) do
+            if Object:IsA("ProximityPrompt") then
+                local Parent = Object.Parent
+                if Parent and Parent:IsA("BasePart")
+                    and (Parent.Position - Position).Magnitude <= 8 then
+                    return Object
+                end
+            end
+        end
+        return nil
+    end
+
+    local function ResetText(Button, Delay)
+        task.wait(Delay or 0.7)
+        if Button and Button.Parent then Button.Text = "NHẶT" end
+    end
+
+    -- [THÊM] trung da bi nhat chua (da bien mat khoi ActiveEggs)
+    local function EggGone(Egg)
+        return (not Egg) or (not Egg.Parent) or (not Egg:IsDescendantOf(ActiveEggs))
+    end
+
+    -- [THÊM] kich hoat prompt
+    local function FirePrompt(Prompt)
+        if typeof(fireproximityprompt) == "function" then
+            pcall(fireproximityprompt, Prompt)
+        else
+            pcall(function()
+                Prompt:InputHoldBegin()
+                task.wait(math.max(Prompt.HoldDuration, 0.15))
+                Prompt:InputHoldEnd()
+            end)
+        end
+    end
+
+    -- nhat: tele toi -> nhat (xac nhan) -> bay ve nha
+    local function DoPick(Egg, Button)
+        if not HomeCFrame then
+            Button.Text = "CHƯA ĐẶT VỊ TRÍ"
+            return ResetText(Button, 1)
+        end
+        if not Egg or not Egg.Parent then
+            Button.Text = "KHÔNG CÒN"
+            return ResetText(Button, 0.6)
+        end
+
+        local Root, Hum = GetChar()
+        if not Root then return end
+
+        local Position = Egg:GetAttribute("Position")
+        if typeof(Position) ~= "Vector3" then
+            Button.Text = "KHÔNG CÓ VỊ TRÍ"
+            return ResetText(Button, 0.7)
+        end
+
+        local Home = HomeCFrame
+
+        -- GIỮ NGUYÊN: tele tới trứng
+        Button.Text = "TELE TỚI TRỨNG..."
+        Root.CFrame = CFrame.new(Position + Vector3.new(0, 3, 0))
+        Root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        task.wait(0.5)
+
+        -- [SỬA] nhặt và xác nhận, thử tối đa 5 lần
+        local Picked = false
+        for Try = 1, 5 do
+            if EggGone(Egg) then
+                Picked = true
+                break
+            end
+
+            local Prompt = FindPrompt(Egg)
+            if not Prompt then
+                Button.Text = "KHÔNG CÓ PROMPT"
+                task.wait(0.4)
+            else
+                Button.Text = "ĐANG NHẶT (" .. Try .. "/5)..."
+                FirePrompt(Prompt)
+                task.wait(0.6)
+            end
+
+            if EggGone(Egg) then
+                Picked = true
+                break
+            end
+        end
+
+        -- [SỬA] khong nhat duoc thi dung yen, khong bay ve
+        if not Picked then
+            Button.Text = "NHẶT THẤT BẠI"
+            return ResetText(Button, 1.2)
+        end
+
+        Root, Hum = GetChar()
+        if not Root then return end
+
+        -- [SỬA] chi bay ve nha (xuyen tuong), khong tele
+        local Reached = FlyTo(Root, Home.Position, function(dist)
+            if Button and Button.Parent then
+                Button.Text = "BAY " .. math.floor(dist) .. "m"
+            end
+        end)
+
+        if Reached and Root.Parent then
+            Root.CFrame = Home
+            Root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        end
+
+        if D.Cancel then
+            Button.Text = "ĐÃ DỪNG"
+        else
+            Button.Text = "THÀNH CÔNG"
+        end
+        ResetText(Button, 0.7)
+    end
+
+    local function PickEgg(Egg, Button)
+        if Busy then return end
+        Busy = true
+        D.Cancel = false
+        local ok, err = pcall(DoPick, Egg, Button)
+        if not ok then warn("LOI NHAT TRUNG:", err) end
+        Busy = false
+        D.Cancel = false
+        if Button and Button.Parent then Button.Text = "NHẶT" end
+    end
+
+    -- dong trung
+    local EggRows = {}
+
+    local function CreateEggRow(Egg)
+        local EggName, Luck = GetEggInfo(Egg)
+        if not EggName then return end
+
+        local Row = Instance.new("Frame")
+        Row.Name = "Egg_" .. tostring(EggName)
+        Row.Size = UDim2.new(1, -5, 0, 58)
+        Row.BackgroundColor3 = Color3.fromRGB(40, 30, 65)
+        Row.BorderSizePixel = 0
+        Row.Parent = TakePage
+        Style(Row, 9)
+
+        local Info = Instance.new("TextLabel")
+        Info.BackgroundTransparency = 1
+        Info.Position = UDim2.new(0, 10, 0, 4)
+        Info.Size = UDim2.new(1, -88, 1, -8)
+        Info.Text = tostring(EggName) .. "\nLuck: " .. FormatNumber(Luck)
+        Info.TextColor3 = Color3.new(1, 1, 1)
+        Info.Font = Enum.Font.GothamBold
+        Info.TextSize = 11
+        Info.TextXAlignment = Enum.TextXAlignment.Left
+        Info.TextYAlignment = Enum.TextYAlignment.Center
+        Info.Parent = Row
+
+        local Button = MakeButton(Row, "NHẶT", ON, UDim2.new(0, 68, 0, 34), UDim2.new(1, -74, 0.5, -17))
+        Button.TextSize = 10
+
+        EggRows[EggName] = Row
+
+        Button.Activated:Connect(function()
+            if Busy then return end
+
+            local TargetEgg
+            for _, CurrentEgg in ipairs(ActiveEggs:GetChildren()) do
+                if CurrentEgg:GetAttribute("Egg") == EggName then
+                    TargetEgg = CurrentEgg
+                    break
+                end
+            end
+
+            if not TargetEgg then
+                Button.Text = "KHÔNG CÒN"
+                task.wait(0.5)
+                RefreshEggs()
+                return
+            end
+
+            PickEgg(TargetEgg, Button)
+        end)
+    end
+
+    local RefreshQueued = false
+
+    RefreshEggs = function()
+        if Busy then
+            if not RefreshQueued then
+                RefreshQueued = true
+                task.spawn(function()
+                    while Busy do task.wait(0.3) end
+                    RefreshQueued = false
+                    RefreshEggs()
+                end)
+            end
+            return
+        end
+
+        for _, Row in pairs(EggRows) do
+            if Row then Row:Destroy() end
+        end
+        EggRows = {}
+
+        local EggTypes, Order = {}, {}
+        for _, Egg in ipairs(ActiveEggs:GetChildren()) do
+            local EggName = Egg:GetAttribute("Egg")
+            if EggName and not EggTypes[EggName] then
+                EggTypes[EggName] = Egg
+                table.insert(Order, EggName)
+            end
+        end
+
+        table.sort(Order)
+        for _, EggName in ipairs(Order) do
+            CreateEggRow(EggTypes[EggName])
+        end
+
+        task.defer(function()
+            TakePage.CanvasSize = UDim2.new(0, 0, 0, TakeLayout.AbsoluteContentSize.Y + 10)
+        end)
+    end
+
+    SeeButton.Activated:Connect(function()
+        OldList.Visible = true
+        TakePage.Visible = false
+        SeeButton.BackgroundColor3 = ON
+        TakeButton.BackgroundColor3 = OFF
+    end)
+
+    TakeButton.Activated:Connect(function()
+        OldList.Visible = false
+        TakePage.Visible = true
+        SeeButton.BackgroundColor3 = OFF
+        TakeButton.BackgroundColor3 = ON
+        RefreshEggs()
+    end)
+
+    ActiveEggs.ChildAdded:Connect(function()
+        task.wait(0.1)
+        RefreshEggs()
+    end)
+
+    ActiveEggs.ChildRemoved:Connect(function()
+        task.wait(0.1)
+        RefreshEggs()
+    end)
+
+    RefreshEggs()
+    D.Status("Phần 2 OK: đã có tab LẤY TRỨNG", false)
+end
+
+local ok, err = pcall(Build)
+if not ok then
+    D.Status("Phần 2 LỖI: " .. tostring(err), true)
+end
