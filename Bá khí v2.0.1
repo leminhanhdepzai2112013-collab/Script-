@@ -417,7 +417,197 @@ local function GetRoot()
     )
 
 end
+--========================================================
+-- BAY: THANH TỐC ĐỘ + SÁT ĐẤT + NÉ VẬT CẢN
+--========================================================
 
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local FlySpeed = 80          -- stud/giây (mặc định)
+local MinSpeed, MaxSpeed = 20, 300
+local GroundOffset = 5       -- độ cao của Root so với mặt đất
+
+-- THANH TRƯỢT TỐC ĐỘ
+local SpeedFrame = Instance.new("Frame")
+SpeedFrame.Name = "FlySpeedSlider"
+SpeedFrame.Size = UDim2.new(1,-5,0,54)
+SpeedFrame.BackgroundColor3 = Color3.fromRGB(40,30,65)
+SpeedFrame.BorderSizePixel = 0
+SpeedFrame.LayoutOrder = -99
+SpeedFrame.Parent = TakePage
+Instance.new("UICorner", SpeedFrame).CornerRadius = UDim.new(0,9)
+
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Position = UDim2.new(0,10,0,4)
+SpeedLabel.Size = UDim2.new(1,-20,0,20)
+SpeedLabel.Font = Enum.Font.GothamBold
+SpeedLabel.TextSize = 11
+SpeedLabel.TextColor3 = Color3.new(1,1,1)
+SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedLabel.Parent = SpeedFrame
+
+local Bar = Instance.new("Frame")
+Bar.Position = UDim2.new(0,15,0,36)
+Bar.Size = UDim2.new(1,-30,0,6)
+Bar.BackgroundColor3 = Color3.fromRGB(70,55,110)
+Bar.BorderSizePixel = 0
+Bar.Parent = SpeedFrame
+Instance.new("UICorner", Bar).CornerRadius = UDim.new(1,0)
+
+local Fill = Instance.new("Frame")
+Fill.BackgroundColor3 = Color3.fromRGB(140,90,255)
+Fill.BorderSizePixel = 0
+Fill.Parent = Bar
+Instance.new("UICorner", Fill).CornerRadius = UDim.new(1,0)
+
+local Knob = Instance.new("Frame")
+Knob.AnchorPoint = Vector2.new(0.5,0.5)
+Knob.Size = UDim2.new(0,16,0,16)
+Knob.BackgroundColor3 = Color3.new(1,1,1)
+Knob.BorderSizePixel = 0
+Knob.Parent = Bar
+Instance.new("UICorner", Knob).CornerRadius = UDim.new(1,0)
+
+local function UpdateSlider()
+    local alpha = (FlySpeed - MinSpeed) / (MaxSpeed - MinSpeed)
+    Fill.Size = UDim2.new(alpha,0,1,0)
+    Knob.Position = UDim2.new(alpha,0,0.5,0)
+    SpeedLabel.Text = "🚀 TỐC ĐỘ BAY: " .. FlySpeed
+end
+UpdateSlider()
+
+local Hit = Instance.new("TextButton")      -- vùng bấm rộng cho dễ kéo
+Hit.BackgroundTransparency = 1
+Hit.Text = ""
+Hit.Position = UDim2.new(0,10,0,24)
+Hit.Size = UDim2.new(1,-20,0,26)
+Hit.Parent = SpeedFrame
+
+local Dragging = false
+
+local function SetFromX(x)
+    local alpha = math.clamp(
+        (x - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1
+    )
+    FlySpeed = math.floor(MinSpeed + alpha * (MaxSpeed - MinSpeed))
+    UpdateSlider()
+end
+
+Hit.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1
+        or i.UserInputType == Enum.UserInputType.Touch then
+        Dragging = true
+        SetFromX(i.Position.X)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(i)
+    if Dragging and (
+        i.UserInputType == Enum.UserInputType.MouseMovement
+        or i.UserInputType == Enum.UserInputType.Touch
+    ) then
+        SetFromX(i.Position.X)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1
+        or i.UserInputType == Enum.UserInputType.Touch then
+        Dragging = false
+    end
+end)
+
+-- RAYCAST
+local function BuildParams()
+    local list = {}
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p.Character then table.insert(list, p.Character) end
+    end
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = list
+    params.RespectCanCollide = true
+    return params
+end
+
+-- Hướng bay có thông thoáng không (quét 3 tia ngang x 2 độ cao)
+local function IsClear(params, pos, dir, dist)
+    local right = Vector3.new(-dir.Z, 0, dir.X)
+    for _,side in ipairs({0, 2, -2}) do
+        for _,h in ipairs({-1, 1.5}) do
+            local origin = pos + right * side + Vector3.new(0, h, 0)
+            if workspace:Raycast(origin, dir * dist, params) then
+                return false
+            end
+        end
+    end
+    return true
+end
+
+-- BAY TỚI Target (Vector3), dừng khi cách StopDistance (theo mặt phẳng ngang)
+local function FlyTo(Root, Target, StopDistance)
+    local params = BuildParams()
+    local pos = Root.Position
+    local side = 1
+    local startTime = os.clock()
+
+    Root.Anchored = true
+
+    while Root.Parent and os.clock() - startTime < 90 do
+        local dt = RunService.Heartbeat:Wait()
+
+        local flat = Vector3.new(Target.X - pos.X, 0, Target.Z - pos.Z)
+        local dist = flat.Magnitude
+        if dist <= StopDistance then break end
+
+        local step = math.min(FlySpeed * dt, dist)
+        local want = flat.Unit
+        local look = math.max(8, FlySpeed * 0.3)
+
+        -- tìm hướng thông thoáng: thẳng -> lệch dần 25° mỗi bước
+        local chosen
+        for _,angle in ipairs({0, 25, 50, 75, 100, 130}) do
+            for _,s in ipairs(angle == 0 and {1} or {side, -side}) do
+                local dir = CFrame.Angles(0, math.rad(angle * s), 0)
+                    :VectorToWorldSpace(want)
+                if IsClear(params, pos, dir, look) then
+                    chosen = dir
+                    if angle ~= 0 then side = s end
+                    break
+                end
+            end
+            if chosen then break end
+        end
+
+        if chosen then
+            local nx = pos.X + chosen.X * step
+            local nz = pos.Z + chosen.Z * step
+
+            -- bám đất: bắn tia xuống từ cao hơn Root một chút
+            local y = pos.Y
+            local hit = workspace:Raycast(
+                Vector3.new(nx, pos.Y + 5, nz),
+                Vector3.new(0, -1000, 0),
+                params
+            )
+            if hit then
+                local goal = hit.Position.Y + GroundOffset
+                y = pos.Y + (goal - pos.Y) * math.min(1, dt * 10)
+            end
+
+            pos = Vector3.new(nx, y, nz)
+            Root.CFrame = CFrame.lookAt(pos, pos + chosen)
+        else
+            -- bị chặn kín mọi hướng: bay vọt lên qua vật cản
+            pos = pos + Vector3.new(0, step, 0)
+            Root.CFrame = CFrame.new(pos)
+        end
+
+        Root.AssemblyLinearVelocity = Vector3.zero
+    end
+end
 --========================================================
 -- NÚT ĐẶT VỊ TRÍ
 --========================================================
@@ -579,201 +769,102 @@ end
 -- NHẶT
 -- QUAY VỀ CHỖ ĐÃ ĐẶT
 --========================================================
+local function PickEgg(Egg, Button)
 
-local function PickEgg(
-    Egg,
-    Button
-)
+    if Busy then return end
 
-    if Busy then
-        return
-    end
-
-    -- Bắt buộc phải đặt vị trí
     if not EggPickupPosition then
-
-        Button.Text =
-            "⚠ CHƯA ĐẶT VỊ TRÍ"
-
+        Button.Text = "⚠ CHƯA ĐẶT VỊ TRÍ"
         task.wait(1)
-
-        if Button.Parent then
-            Button.Text = "🥚 NHẶT"
-        end
-
+        if Button.Parent then Button.Text = "🥚 NHẶT" end
         return
-
     end
 
-    if not Egg
-        or not Egg.Parent then
-
-        Button.Text =
-            "❌ KHÔNG CÒN"
-
+    if not Egg or not Egg.Parent then
+        Button.Text = "❌ KHÔNG CÒN"
         task.wait(0.6)
-
-        if Button.Parent then
-            Button.Text = "🥚 NHẶT"
-        end
-
-        return
-
-    end
-
-    local Root =
-        GetRoot()
-
-    if not Root then
+        if Button.Parent then Button.Text = "🥚 NHẶT" end
         return
     end
 
-    local Position =
-        Egg:GetAttribute(
-            "Position"
-        )
+    local Root = GetRoot()
+    if not Root then return end
 
-    if typeof(Position)
-        ~= "Vector3" then
-
-        Button.Text =
-            "❌ KHÔNG CÓ VỊ TRÍ"
-
+    local Position = Egg:GetAttribute("Position")
+    if typeof(Position) ~= "Vector3" then
+        Button.Text = "❌ KHÔNG CÓ VỊ TRÍ"
         task.wait(0.7)
-
-        if Button.Parent then
-            Button.Text = "🥚 NHẶT"
-        end
-
+        if Button.Parent then Button.Text = "🥚 NHẶT" end
         return
-
     end
 
     Busy = true
+    local ReturnCFrame = EggPickupPosition
 
-    -- Giữ lại vị trí cần quay về
-    local ReturnCFrame =
-        EggPickupPosition
+    --================ BAY TỚI TRỨNG ================
+    Button.Text = "🚀 ĐANG BAY TỚI TRỨNG..."
 
-    --====================================================
-    -- TELE TỚI TRỨNG
-    --====================================================
+    local ok1 = pcall(function()
+        FlyTo(Root, Position, 3)
+        -- áp sát trứng để đủ tầm nhặt
+        Root.CFrame = CFrame.new(Position + Vector3.new(0,3,0))
+    end)
+    Root.Anchored = false
 
-    Button.Text =
-        "⚡ TELE TỚI TRỨNG..."
+    if not ok1 then
+        Busy = false
+        Button.Text = "❌ LỖI BAY"
+        task.wait(0.7)
+        if Button.Parent then Button.Text = "🥚 NHẶT" end
+        return
+    end
 
-    Root.CFrame =
-        CFrame.new(
-            Position
-            + Vector3.new(0,3,0)
-        )
+    task.wait(0.3)
 
-    task.wait(0.5)
-
-    --====================================================
-    -- TÌM PROMPT
-    --====================================================
-
-    local Prompt =
-        FindPrompt(Egg)
+    --================ NHẶT ================
+    local Prompt = FindPrompt(Egg)
 
     if Prompt then
+        Button.Text = "🥚 ĐANG NHẶT..."
 
-        Button.Text =
-            "🥚 ĐANG NHẶT..."
-
-        --================================================
-        -- FIRE PROMPT
-        --================================================
-
-        if typeof(
-            fireproximityprompt
-        ) == "function" then
-
-            pcall(function()
-
-                fireproximityprompt(
-                    Prompt
-                )
-
-            end)
-
+        if typeof(fireproximityprompt) == "function" then
+            pcall(function() fireproximityprompt(Prompt) end)
         else
-
             pcall(function()
-
                 Prompt:InputHoldBegin()
-
-                task.wait(
-                    math.max(
-                        Prompt.HoldDuration,
-                        0.15
-                    )
-                )
-
+                task.wait(math.max(Prompt.HoldDuration, 0.15))
                 Prompt:InputHoldEnd()
-
             end)
-
         end
 
         task.wait(0.7)
-
-        --================================================
-        -- QUAY VỀ CHỖ ĐÃ ĐẶT
-        --================================================
-
-        if Root
-            and Root.Parent then
-
-            Button.Text =
-                "↩ ĐANG VỀ CHỖ ĐẶT..."
-
-            Root.CFrame =
-                ReturnCFrame
-
-            task.wait(0.5)
-
-            Button.Text =
-                "✅ THÀNH CÔNG"
-
-        end
-
     else
-
-        Button.Text =
-            "⚠ KHÔNG CÓ PROMPT"
-
+        Button.Text = "⚠ KHÔNG CÓ PROMPT"
         task.wait(0.5)
+    end
 
-        -- Dù không tìm được prompt
-        -- vẫn quay về chỗ đặt
+    --================ BAY VỀ ================
+    if Root and Root.Parent then
+        Button.Text = "↩ ĐANG BAY VỀ..."
 
-        if Root
-            and Root.Parent then
+        pcall(function()
+            FlyTo(Root, ReturnCFrame.Position, 3)
+            Root.CFrame = ReturnCFrame
+        end)
+        Root.Anchored = false
 
-            Root.CFrame =
-                ReturnCFrame
-
+        if Prompt then
+            Button.Text = "✅ THÀNH CÔNG"
         end
-
     end
 
     Busy = false
-
     task.wait(0.7)
-
-    if Button
-        and Button.Parent then
-
-        Button.Text =
-            "🥚 NHẶT"
-
+    if Button and Button.Parent then
+        Button.Text = "🥚 NHẶT"
     end
-
 end
-
---========================================================
+========================================================
 -- TẠO 1 LOẠI TRỨNG
 --========================================================
 
