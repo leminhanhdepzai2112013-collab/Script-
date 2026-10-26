@@ -1,0 +1,1645 @@
+--========================================================
+-- MINH ANH BA KHI v3.1  (ban gop 1 file, dua len GitHub)
+-- Bay toi da 1000 | do duong thong minh | xuyen vat nho
+-- Trung Luck >= 2.5T: bay vao tim loi vao thay vi tele
+--========================================================
+
+local URL = "https://raw.githubusercontent.com/leminhanhdepzai2112013-collab/Script-/refs/heads/main/B%C3%A1%20kh%C3%AD"
+local GUI_NAME = "MINH_ANH_BA_KHI"
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local ENV = _G
+if typeof(getgenv) == "function" then ENV = getgenv() end
+
+local D = {
+    Settings = {
+        Speed = 400, MinSpeed = 10, MaxSpeed = 1000, SpeedStep = 50,
+        Hover = 6, MinHover = 2, MaxHover = 40, HoverStep = 2,
+        AutoSpeed = true,
+        Reserve = 15,       -- toi nha khi trung con 15 giay
+        ManualTime = 40,    -- khong doc duoc thoi gian trung thi mac dinh 40 giay
+        AutoRide = true,
+        BigSize = 8,        -- vat co canh lon nhat < 8 studs thi bay xuyen qua
+        FlyInLuck = 2.5e12, -- trung Luck >= 2.5T: bay vao tim loi vao, khong tele
+    },
+    Cancel = false,
+    Busy = false,
+    Home = nil,
+}
+ENV.MA_DATA = D
+local S = D.Settings
+
+local function Containers()
+    local t = {}
+    if typeof(gethui) == "function" then
+        pcall(function() table.insert(t, gethui()) end)
+    end
+    table.insert(t, CoreGui)
+    table.insert(t, PlayerGui)
+    return t
+end
+
+--========================================================
+-- THONG BAO: THE NHO GON (thanh cong) / KHUNG NHO (loi)
+--========================================================
+function D.Status(msg, isError, life)
+    msg = tostring(msg)
+    warn("[BA KHI]", msg)
+    pcall(function()
+        for _, c in ipairs(Containers()) do
+            local old = c:FindFirstChild("MA_STATUS_GUI")
+            if old then old:Destroy() end
+        end
+
+        local multi = string.find(msg, "\n", 1, true) ~= nil
+        local compact = (not isError) and (not multi)
+
+        local accent = Color3.fromRGB(70, 210, 130)
+        if isError then
+            accent = Color3.fromRGB(235, 80, 95)
+        elseif multi then
+            accent = Color3.fromRGB(130, 90, 230)
+        end
+
+        local sg = Instance.new("ScreenGui")
+        sg.Name = "MA_STATUS_GUI"
+        sg.ResetOnSpawn = false
+        sg.DisplayOrder = 999
+
+        local card = Instance.new("Frame")
+        card.AnchorPoint = Vector2.new(0.5, 0)
+        card.Position = UDim2.new(0.5, 0, 0, -80)
+        card.BackgroundColor3 = Color3.fromRGB(22, 18, 38)
+        card.BorderSizePixel = 0
+        card.Parent = sg
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = accent
+        stroke.Transparency = 0.4
+        stroke.Thickness = 1
+        stroke.Parent = card
+
+        if compact then
+            card.Size = UDim2.new(0, 0, 0, 34)
+            card.AutomaticSize = Enum.AutomaticSize.X
+
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 17)
+            corner.Parent = card
+
+            local pad = Instance.new("UIPadding")
+            pad.PaddingLeft = UDim.new(0, 12)
+            pad.PaddingRight = UDim.new(0, 18)
+            pad.Parent = card
+
+            local list = Instance.new("UIListLayout")
+            list.FillDirection = Enum.FillDirection.Horizontal
+            list.VerticalAlignment = Enum.VerticalAlignment.Center
+            list.Padding = UDim.new(0, 8)
+            list.Parent = card
+
+            local dot = Instance.new("Frame")
+            dot.Size = UDim2.new(0, 10, 0, 10)
+            dot.BackgroundColor3 = accent
+            dot.BorderSizePixel = 0
+            dot.Parent = card
+            local dc = Instance.new("UICorner")
+            dc.CornerRadius = UDim.new(1, 0)
+            dc.Parent = dot
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(0, 0, 1, 0)
+            label.AutomaticSize = Enum.AutomaticSize.X
+            label.BackgroundTransparency = 1
+            label.Text = msg
+            label.TextColor3 = Color3.fromRGB(240, 240, 250)
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 13
+            label.Parent = card
+        else
+            local _, nl = string.gsub(msg, "\n", "\n")
+            local lines = nl + 1 + math.floor(#msg / 60)
+            local h = math.clamp(26 + lines * 15, 58, 320)
+
+            card.Size = UDim2.new(0.92, 0, 0, h)
+
+            local cs = Instance.new("UISizeConstraint")
+            cs.MaxSize = Vector2.new(400, 400)
+            cs.Parent = card
+
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 10)
+            corner.Parent = card
+
+            local bar = Instance.new("Frame")
+            bar.Size = UDim2.new(0, 4, 1, -16)
+            bar.Position = UDim2.new(0, 8, 0, 8)
+            bar.BackgroundColor3 = accent
+            bar.BorderSizePixel = 0
+            bar.Parent = card
+            local bc = Instance.new("UICorner")
+            bc.CornerRadius = UDim.new(1, 0)
+            bc.Parent = bar
+
+            local box = Instance.new("TextBox")
+            box.Position = UDim2.new(0, 20, 0, 6)
+            box.Size = UDim2.new(1, -56, 1, -12)
+            box.BackgroundTransparency = 1
+            box.TextColor3 = Color3.fromRGB(235, 235, 245)
+            box.Font = Enum.Font.Gotham
+            box.TextSize = 11
+            box.TextWrapped = true
+            box.TextXAlignment = Enum.TextXAlignment.Left
+            box.TextYAlignment = Enum.TextYAlignment.Top
+            box.MultiLine = true
+            box.ClearTextOnFocus = false
+            box.Text = msg
+            box.Parent = card
+
+            local close = Instance.new("TextButton")
+            close.Size = UDim2.new(0, 24, 0, 24)
+            close.Position = UDim2.new(1, -30, 0, 6)
+            close.BackgroundColor3 = Color3.fromRGB(45, 38, 70)
+            close.BorderSizePixel = 0
+            close.Text = "X"
+            close.TextColor3 = Color3.fromRGB(235, 235, 245)
+            close.Font = Enum.Font.GothamBold
+            close.TextSize = 11
+            close.Parent = card
+            local cc = Instance.new("UICorner")
+            cc.CornerRadius = UDim.new(0, 6)
+            cc.Parent = close
+            close.Activated:Connect(function() sg:Destroy() end)
+        end
+
+        sg.Parent = Containers()[1]
+
+        TweenService:Create(
+            card,
+            TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Position = UDim2.new(0.5, 0, 0, 10)}
+        ):Play()
+
+        local life2 = life
+        if not life2 then
+            if isError then life2 = 90
+            elseif multi then life2 = 60
+            else life2 = 2.5 end
+        end
+
+        task.delay(life2, function()
+            pcall(function()
+                TweenService:Create(
+                    card,
+                    TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                    {Position = UDim2.new(0.5, 0, 0, -80)}
+                ):Play()
+                task.wait(0.3)
+                sg:Destroy()
+            end)
+        end)
+    end)
+end
+--========================================================
+-- TAI MENU GOC
+--========================================================
+local Before = {}
+for _, c in ipairs(Containers()) do
+    for _, g in ipairs(c:GetChildren()) do
+        Before[g] = true
+    end
+end
+
+local Loaded, LoadFailed = false, false
+
+task.spawn(function()
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(URL))()
+    end)
+    if not ok then
+        LoadFailed = true
+        D.Status("Không tải được script gốc: " .. tostring(err), true)
+    end
+    Loaded = true
+end)
+
+local function FindGui()
+    for _, c in ipairs(Containers()) do
+        local g = c:FindFirstChild(GUI_NAME)
+        if g then return g end
+    end
+    for _, c in ipairs(Containers()) do
+        for _, g in ipairs(c:GetChildren()) do
+            if g:IsA("ScreenGui") and not Before[g]
+                and g.Name ~= "MA_STATUS_GUI"
+                and g:FindFirstChildWhichIsA("ScrollingFrame", true) then
+                return g
+            end
+        end
+    end
+end
+
+local GUI
+for _ = 1, 40 do
+    GUI = FindGui()
+    if GUI then break end
+    task.wait(0.5)
+end
+
+if not GUI then
+    D.Status("Phần 1 LỖI: không thấy menu của script gốc", true)
+    return
+end
+
+if LoadFailed then return end
+
+local t0 = os.clock()
+while not Loaded and os.clock() - t0 < 5 do task.wait(0.1) end
+task.wait(0.5)
+
+D.GUI = GUI
+
+--========================================================
+-- HAM DUNG CHUNG
+--========================================================
+local function GetChar()
+    local Character = Player.Character or Player.CharacterAdded:Wait()
+    return Character:FindFirstChild("HumanoidRootPart"),
+        Character:FindFirstChildOfClass("Humanoid")
+end
+
+local function Style(Obj, Radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, Radius or 8)
+    c.Parent = Obj
+end
+
+local function MakeButton(Parent, Text, Color, Size, Pos)
+    local b = Instance.new("TextButton")
+    b.Size = Size
+    if Pos then b.Position = Pos end
+    b.BackgroundColor3 = Color
+    b.BorderSizePixel = 0
+    b.Text = Text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 11
+    b.Parent = Parent
+    Style(b, 8)
+    return b
+end
+
+local ON = Color3.fromRGB(100, 55, 190)
+local OFF = Color3.fromRGB(45, 35, 75)
+local MID = Color3.fromRGB(65, 45, 100)
+
+--========================================================
+-- BO DO DUONG: VAT NHO XUYEN QUA, VAT LON TIM DUONG (A*)
+--========================================================
+local function BuildNav()
+    local Terrain = workspace.Terrain
+    local Nav = {Small = {}}
+    D.Nav = Nav
+
+    local RP = RaycastParams.new()
+    do
+        local ok = pcall(function() RP.FilterType = Enum.RaycastFilterType.Exclude end)
+        if not ok then RP.FilterType = Enum.RaycastFilterType.Blacklist end
+    end
+    pcall(function() RP.RespectCanCollide = true end)
+
+    local OP = OverlapParams.new()
+    do
+        local ok = pcall(function() OP.FilterType = Enum.RaycastFilterType.Exclude end)
+        if not ok then
+            pcall(function() OP.FilterType = Enum.RaycastFilterType.Blacklist end)
+        end
+    end
+
+    -- vat "lon" = co the va cham va co canh lon nhat >= BigSize
+    function Nav.IsBig(p)
+        if p == Terrain then return true end
+        if not p:IsA("BasePart") then return false end
+        if not p.CanCollide then return false end
+        local s = p.Size
+        return math.max(s.X, s.Y, s.Z) >= S.BigSize
+    end
+
+    -- ban tia, bo qua vat nho (xuyen qua), dung o vat lon
+    function Nav.CastBig(origin, dir)
+        local ignore = {Player.Character}
+        for _, p in ipairs(Nav.Small) do table.insert(ignore, p) end
+        for _ = 1, 5 do
+            RP.FilterDescendantsInstances = ignore
+            local r = workspace:Raycast(origin, dir, RP)
+            if not r then return nil end
+            if Nav.IsBig(r.Instance) then return r end
+            table.insert(ignore, r.Instance)
+            if #Nav.Small < 60 then table.insert(Nav.Small, r.Instance) end
+        end
+        return nil
+    end
+
+    -- phia tren dau co mai/tran lon khong
+    function Nav.Roofed(pos)
+        return Nav.CastBig(pos + Vector3.new(0, 3, 0), Vector3.new(0, 300, 0)) ~= nil
+    end
+
+    -- khoa o luoi the gioi (4 studs) de nho cho da di qua / o hong
+    function Nav.WK(x, z)
+        return (math.floor(x / 4) + 100000) * 200000 + (math.floor(z / 4) + 100000)
+    end
+
+    -- heap nhi phan cho A*
+    local function HeapPush(h, f, k)
+        local n = #h + 1
+        h[n] = {f, k}
+        while n > 1 do
+            local p = math.floor(n / 2)
+            if h[p][1] <= h[n][1] then break end
+            h[p], h[n] = h[n], h[p]
+            n = p
+        end
+    end
+
+    local function HeapPop(h)
+        local top = h[1]
+        local last = table.remove(h)
+        local n = #h
+        if n > 0 then
+            h[1] = last
+            local i = 1
+            while true do
+                local l, r, s = i * 2, i * 2 + 1, i
+                if l <= n and h[l][1] < h[s][1] then s = l end
+                if r <= n and h[r][1] < h[s][1] then s = r end
+                if s == i then break end
+                h[i], h[s] = h[s], h[i]
+                i = s
+            end
+        end
+        return top
+    end
+
+    local DIRS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}}
+    local OFFS = {0, 1.4, -1.4}
+
+    -- Lap duong: tra ve (danh sach moc, co_phai_duong_mot_phan)
+    -- level: do cao bay trong me cung; hold: ham nhuong 1 khung hinh
+    function Nav.Plan(startPos, goalPos, level, hold, memory)
+        hold = hold or function() task.wait() end
+        OP.FilterDescendantsInstances = {Player.Character}
+
+        local dx = goalPos.X - startPos.X
+        local dz = goalPos.Z - startPos.Z
+        local dist = math.sqrt(dx * dx + dz * dz)
+        local H = math.clamp(dist * 0.75 + 40, 80, 400)
+        local cell = math.max(4, math.ceil(2 * H / 80))
+        local cx = (startPos.X + goalPos.X) / 2
+        local cz = (startPos.Z + goalPos.Z) / 2
+        local ox = math.floor((cx - H) / cell) * cell
+        local oz = math.floor((cz - H) / cell) * cell
+        local N = math.ceil(2 * H / cell) + 2
+
+        local cache = {}
+        local lastY = os.clock()
+
+        local function tick()
+            if os.clock() - lastY > 0.006 then
+                hold()
+                lastY = os.clock()
+            end
+        end
+
+        local function center(i, j)
+            return ox + (i + 0.5) * cell, oz + (j + 0.5) * cell
+        end
+
+        local function toIdx(x, z)
+            return math.floor((x - ox) / cell), math.floor((z - oz) / cell)
+        end
+
+        -- o bi chan neu co vat lon nam trong o o do cao bay
+        local function blocked(i, j)
+            if i < 0 or j < 0 or i >= N or j >= N then return true end
+            local k = i * 1000 + j
+            local v = cache[k]
+            if v ~= nil then return v end
+            local x, z = center(i, j)
+            local res = false
+            if memory and memory.Bad[Nav.WK(x, z)] then
+                res = true
+            else
+                local ok, parts = pcall(function()
+                    return workspace:GetPartBoundsInBox(
+                        CFrame.new(x, level, z),
+                        Vector3.new(cell, 4.5, cell),
+                        OP
+                    )
+                end)
+                if ok and parts then
+                    for _, p in ipairs(parts) do
+                        if p ~= Terrain and Nav.IsBig(p) then
+                            res = true
+                            break
+                        end
+                    end
+                end
+            end
+            cache[k] = res
+            tick()
+            return res
+        end
+
+        local function nearestFree(i, j, maxR)
+            if not blocked(i, j) then return i, j end
+            for r = 1, maxR do
+                local bi, bj, bd
+                for di = -r, r do
+                    for dj = -r, r do
+                        if math.max(math.abs(di), math.abs(dj)) == r then
+                            if not blocked(i + di, j + dj) then
+                                local d = di * di + dj * dj
+                                if not bd or d < bd then bi, bj, bd = i + di, j + dj, d end
+                            end
+                        end
+                    end
+                end
+                if bi then return bi, bj end
+            end
+            return nil
+        end
+
+        local si, sj = toIdx(startPos.X, startPos.Z)
+        local gi, gj = toIdx(goalPos.X, goalPos.Z)
+        si, sj = nearestFree(si, sj, 8)
+        if not si then return nil end
+        gi, gj = nearestFree(gi, gj, 8)
+        if not gi then return nil end
+
+        local function hfn(i, j)
+            local a, b = math.abs(i - gi), math.abs(j - gj)
+            return (a + b) - 0.5858 * math.min(a, b)
+        end
+
+        local sk, gk = si * 1000 + sj, gi * 1000 + gj
+        local g, came, closed, open = {[sk] = 0}, {}, {}, {}
+        HeapPush(open, hfn(si, sj), sk)
+        local bestK, bestH, found = sk, hfn(si, sj), false
+
+        while #open > 0 do
+            local node = HeapPop(open)
+            local k = node[2]
+            if not closed[k] then
+                closed[k] = true
+                if k == gk then
+                    found = true
+                    break
+                end
+                local i, j = math.floor(k / 1000), k % 1000
+                local hk = hfn(i, j)
+                if hk < bestH then bestH, bestK = hk, k end
+
+                for _, d in ipairs(DIRS) do
+                    local ni, nj = i + d[1], j + d[2]
+                    if not blocked(ni, nj) then
+                        local diag = d[1] ~= 0 and d[2] ~= 0
+                        if (not diag) or (not blocked(i + d[1], j) and not blocked(i, j + d[2])) then
+                            local nk = ni * 1000 + nj
+                            if not closed[nk] then
+                                local x, z = center(ni, nj)
+                                local vis = 0
+                                if memory then vis = memory.Visits[Nav.WK(x, z)] or 0 end
+                                local step = 1
+                                if diag then step = 1.4142 end
+                                local ng = g[k] + step * (1 + 0.12 * math.min(vis, 25))
+                                if g[nk] == nil or ng < g[nk] then
+                                    g[nk] = ng
+                                    came[nk] = k
+                                    HeapPush(open, ng + hfn(ni, nj), nk)
+                                end
+                            end
+                        end
+                    end
+                end
+                tick()
+            end
+        end
+
+        -- dung lai duong tu cuoi ve dau
+        local endK = bestK
+        if found then endK = gk end
+        local rev = {}
+        local k = endK
+        while k do
+            table.insert(rev, k)
+            k = came[k]
+        end
+
+        local pts = {}
+        for idx = #rev, 1, -1 do
+            local kk = rev[idx]
+            local x, z = center(math.floor(kk / 1000), kk % 1000)
+            table.insert(pts, Vector3.new(x, level, z))
+        end
+        if found then
+            table.insert(pts, Vector3.new(goalPos.X, goalPos.Y, goalPos.Z))
+        end
+
+        -- lam thang duong: noi thang cac moc neu khong co vat lon o giua
+        local function lineFree(a, b)
+            local ddx, ddz = b.X - a.X, b.Z - a.Z
+            local len = math.sqrt(ddx * ddx + ddz * ddz)
+            if len < 0.01 then return true end
+            local ux, uz = ddx / len, ddz / len
+            local rx, rz = -uz, ux
+            local stepL = cell * 0.5
+            local n = math.ceil(len / stepL)
+            for s = 0, n do
+                local t = math.min(s * stepL, len)
+                local px, pz = a.X + ux * t, a.Z + uz * t
+                for _, off in ipairs(OFFS) do
+                    local i, j = toIdx(px + rx * off, pz + rz * off)
+                    if blocked(i, j) then return false end
+                end
+            end
+            return true
+        end
+
+        local out = {pts[1]}
+        local i = 1
+        while i < #pts do
+            local j = #pts
+            while j > i + 1 and not lineFree(pts[i], pts[j]) do
+                j = j - 1
+            end
+            table.insert(out, pts[j])
+            i = j
+        end
+
+        return out, not found
+    end
+
+    return true
+end
+--========================================================
+-- BAY: TU CHON "BAY QUA DAU" / "DI TRONG ME CUNG" / "BAY THANG"
+--========================================================
+local function BuildFly()
+    local ZERO = Vector3.new(0, 0, 0)
+    local YAXIS = Vector3.new(0, 1, 0)
+
+    -- opts: Deadline, OnStatus(dist, climbing, speed, remainT), Maze (ep di tim loi vao)
+    -- tra ve true neu toi noi
+    function D.FlyTo(Root, Hum, Target, opts)
+        opts = opts or {}
+        local Nav = D.Nav
+        local OnStatus = opts.OnStatus
+        local Deadline = opts.Deadline
+        local memory = {Visits = {}, Bad = {}}
+        if Nav then Nav.Small = {} end
+
+        local RootOffset = (Hum and Hum.HipHeight or 2) + Root.Size.Y / 2
+        local curCF = Root.CFrame
+        local arrived = false
+
+        local oldPlatform = Hum and Hum.PlatformStand
+        if Hum then Hum.PlatformStand = true end
+
+        -- nhuong 1 khung hinh nhung giu nguyen vi tri (dung khi dang lap duong)
+        local function hold()
+            local dt = RunService.Heartbeat:Wait()
+            if Root.Parent then
+                Root.CFrame = curCF
+                Root.AssemblyLinearVelocity = ZERO
+                Root.AssemblyAngularVelocity = ZERO
+            end
+            return dt
+        end
+
+        local mode = "direct"
+        local goalRoofed = false
+        if Nav then
+            local startRoofed = Nav.Roofed(Root.Position)
+            goalRoofed = Nav.Roofed(Target)
+            if opts.Maze or startRoofed or goalRoofed then
+                mode = "maze"
+            else
+                mode = "over"
+            end
+        end
+
+        local path, pidx, cum, partialPath = nil, 1, nil, false
+        local needReplan = true
+        local failCount = 0
+
+        local function Replan()
+            local pos = Root.Position
+            local level = Target.Y
+            if Nav.Roofed(pos) and not goalRoofed then level = pos.Y end
+            local p, partial = Nav.Plan(pos, Target, level, hold, memory)
+            if not p then return false end
+            path, pidx, partialPath = p, 1, partial
+            cum = {}
+            cum[#p] = 0
+            for i = #p - 1, 1, -1 do
+                cum[i] = cum[i + 1] + (p[i + 1] - p[i]).Magnitude
+            end
+            return true
+        end
+
+        local startTime = os.clock()
+        local lastCheck, lastPos = os.clock(), Root.Position
+        local lastStatus, lastVisit = 0, 0
+        local extra, stuck, blockedT = 0, 0, 0
+
+        local ok, err = pcall(function()
+            while true do
+                local dt = math.min(RunService.Heartbeat:Wait(), 0.1)
+                if D.Cancel or not Root.Parent then break end
+
+                local pos = Root.Position
+                local flatVec = Vector3.new(Target.X - pos.X, 0, Target.Z - pos.Z)
+                local flatDist = flatVec.Magnitude
+
+                if flatDist < 3 and math.abs(pos.Y - Target.Y) < 4 then
+                    arrived = true
+                    break
+                end
+
+                -- qua lau thi bay thang cho chac chan toi noi
+                if mode ~= "direct" and os.clock() - startTime > 90 then
+                    mode = "direct"
+                end
+
+                -- lap duong khi can (me cung)
+                if mode == "maze" and (needReplan or not path
+                    or (path[pidx] == nil and partialPath)) then
+                    local okp = Replan()
+                    needReplan = false
+                    if not okp then
+                        failCount = failCount + 1
+                        if failCount >= 2 then mode = "direct" end
+                    end
+                    pos = Root.Position
+                    flatVec = Vector3.new(Target.X - pos.X, 0, Target.Z - pos.Z)
+                    flatDist = flatVec.Magnitude
+                    dt = 1 / 60
+                    lastCheck, lastPos = os.clock(), pos
+                end
+
+                -- quang duong con lai (de tu chinh toc do)
+                local remLen = flatDist
+                if mode == "maze" and path and path[pidx] then
+                    remLen = (path[pidx] - pos).Magnitude + cum[pidx]
+                end
+
+                local Speed = S.Speed
+                local remainT = nil
+                if S.AutoSpeed and Deadline then
+                    remainT = Deadline - os.clock()
+                    if remainT > 0.5 then
+                        Speed = math.clamp(
+                            (remLen * 1.1 + 10) / (remainT * 0.8),
+                            S.MinSpeed, S.Speed
+                        )
+                    end
+                end
+
+                local newPos = pos
+                local climbing = false
+
+                if mode == "maze" and path then
+                    ------------------------------------------------
+                    -- DI THEO DUONG DA LAP (co mang du de khong ngo cut)
+                    ------------------------------------------------
+                    local p = pos
+                    local budget = Speed * dt
+                    local guard = 0
+                    while budget > 0 and path[pidx] and guard < 12 do
+                        guard = guard + 1
+                        local w = path[pidx]
+                        local d = w - p
+                        local dd = d.Magnitude
+                        if dd <= budget then
+                            p = w
+                            budget = budget - dd
+                            pidx = pidx + 1
+                        else
+                            p = p + d.Unit * budget
+                            budget = 0
+                        end
+                    end
+                    newPos = p
+                    if math.abs(newPos.Y - pos.Y) > 3 then climbing = true end
+
+                elseif mode == "over" then
+                    ------------------------------------------------
+                    -- BAY QUA DAU: chi tinh vat lon, vat nho bay xuyen
+                    ------------------------------------------------
+                    local want = ZERO
+                    if flatDist > 0.01 then want = flatVec / flatDist end
+
+                    local L = math.min(14 + Speed * 0.3, 250)
+                    local topY = math.max(pos.Y, Target.Y) + 80 + extra
+                    local highest = nil
+                    for _, f in ipairs({0, 0.5, 1}) do
+                        local dd = math.min(L * f, flatDist)
+                        local r = Nav.CastBig(
+                            Vector3.new(pos.X + want.X * dd, topY, pos.Z + want.Z * dd),
+                            Vector3.new(0, -700, 0)
+                        )
+                        if r and (not highest or r.Position.Y > highest) then
+                            highest = r.Position.Y
+                        end
+                    end
+
+                    local blockedAhead = false
+                    if flatDist >= 14 then
+                        local reach = math.min(Speed * dt, flatDist) + 5 + Speed * 0.1
+                        local right = want:Cross(YAXIS)
+                        if right.Magnitude > 0.01 then
+                            right = right.Unit
+                        else
+                            right = Vector3.new(1, 0, 0)
+                        end
+                        for _, o in ipairs({ZERO, right * 1.8, -right * 1.8, Vector3.new(0, 2.5, 0)}) do
+                            if Nav.CastBig(pos + o, want * reach) then
+                                blockedAhead = true
+                                break
+                            end
+                        end
+                    end
+
+                    if blockedAhead then
+                        blockedT = blockedT + dt
+                        extra = math.min(extra + math.max(Speed * 0.8, 60) * dt, 300)
+                        climbing = true
+                        if blockedT > 1.2 then
+                            mode = "maze" -- bay len khong duoc: chuyen sang tim duong
+                            needReplan = true
+                            extra = 0
+                            blockedT = 0
+                        end
+                    else
+                        blockedT = 0
+                        extra = math.max(0, extra - 40 * dt)
+                    end
+
+                    local targetY = pos.Y
+                    if highest then
+                        targetY = highest + RootOffset + S.Hover + extra
+                    end
+                    if flatDist < 14 then targetY = Target.Y end
+
+                    local up = math.max(Speed * 1.2, 90) * dt
+                    local down = math.max(Speed * 0.6, 40) * dt
+                    local dy = math.clamp(targetY - pos.Y, -down, up)
+
+                    local horiz = ZERO
+                    if not blockedAhead then
+                        local step = math.min(Speed * dt, flatDist)
+                        if targetY - pos.Y > 6 and flatDist >= 14 then
+                            step = step * 0.3
+                        end
+                        horiz = want * step
+                    end
+                    if targetY - pos.Y > 6 then climbing = true end
+                    newPos = pos + horiz + Vector3.new(0, dy, 0)
+
+                else
+                    ------------------------------------------------
+                    -- BAY THANG (phuong an cuoi cung, dam bao toi noi)
+                    ------------------------------------------------
+                    local d = Target - pos
+                    local dd = d.Magnitude
+                    if dd > 0.01 then
+                        newPos = pos + d.Unit * math.min(Speed * dt, dd)
+                    end
+                end
+
+                local mv = Vector3.new(newPos.X - pos.X, 0, newPos.Z - pos.Z)
+                local cf
+                if mv.Magnitude > 0.01 then
+                    cf = CFrame.new(newPos, newPos + mv)
+                else
+                    local rot = Root.CFrame - Root.CFrame.Position
+                    cf = CFrame.new(newPos) * rot
+                end
+                Root.CFrame = cf
+                curCF = cf
+                Root.AssemblyLinearVelocity = ZERO
+                Root.AssemblyAngularVelocity = ZERO
+
+                -- nho cho da di qua (de lan sau tranh quanh quan)
+                if mode == "maze" and os.clock() - lastVisit > 0.3 then
+                    lastVisit = os.clock()
+                    local kk = Nav.WK(pos.X, pos.Z)
+                    memory.Visits[kk] = (memory.Visits[kk] or 0) + 1
+                end
+
+                -- phat hien ket: danh dau o phia truoc la xau, lap duong lai
+                if os.clock() - lastCheck >= 0.7 then
+                    local moved = (Root.Position - lastPos).Magnitude
+                    if mode ~= "direct" and moved < math.max(2, Speed * 0.12) then
+                        stuck = stuck + 1
+                        if mode == "maze" then
+                            local ahead = pos
+                            if path and path[pidx] then
+                                local dv = path[pidx] - pos
+                                if dv.Magnitude > 0.5 then ahead = pos + dv.Unit * 4 end
+                            end
+                            memory.Bad[Nav.WK(ahead.X, ahead.Z)] = true
+                            needReplan = true
+                        else
+                            extra = math.min(extra + 15, 300)
+                            if stuck >= 2 and Nav then
+                                mode = "maze"
+                                needReplan = true
+                            end
+                        end
+                        if stuck >= 6 then mode = "direct" end
+                    else
+                        stuck = 0
+                    end
+                    lastCheck, lastPos = os.clock(), Root.Position
+                end
+
+                if OnStatus and os.clock() - lastStatus > 0.2 then
+                    lastStatus = os.clock()
+                    OnStatus(remLen, climbing, Speed, remainT)
+                end
+            end
+        end)
+
+        if not ok then warn("LOI BAY:", err) end
+
+        if Hum then Hum.PlatformStand = oldPlatform or false end
+        if Root and Root.Parent then Root.AssemblyLinearVelocity = ZERO end
+
+        return arrived
+    end
+
+    -- ten cu, de cac phan khac van goi duoc
+    function D.FlyHome(Root, Hum, Target, OnStatus, Deadline)
+        return D.FlyTo(Root, Hum, Target, {OnStatus = OnStatus, Deadline = Deadline})
+    end
+
+    return true
+end
+--========================================================
+-- GIAO DIEN (2 TAB, DAT VI TRI, TOC DO, DO CAO, DUNG)
+--========================================================
+local function BuildUI()
+    for _, v in ipairs(GUI:GetDescendants()) do
+        if v.Name == "MA_EGG_TABS" or v.Name == "MA_TAKE_EGG_PAGE" then
+            v:Destroy()
+        end
+    end
+
+    local Main, OldList
+    for _, v in ipairs(GUI:GetChildren()) do
+        if v:IsA("Frame") then
+            for _, c in ipairs(v:GetChildren()) do
+                if c:IsA("ScrollingFrame") then
+                    Main, OldList = v, c
+                    break
+                end
+            end
+            if OldList then break end
+        end
+    end
+    if not OldList then
+        for _, v in ipairs(GUI:GetDescendants()) do
+            if v:IsA("ScrollingFrame") then
+                OldList = v
+                Main = v.Parent
+                break
+            end
+        end
+    end
+    if not Main or not OldList then
+        error("không tìm thấy khung/danh sách trong menu gốc")
+    end
+
+    local ServerData = RS:WaitForChild("ServerData", 10)
+    local ActiveEggs = ServerData and ServerData:WaitForChild("ActiveEggs", 10)
+    if not ActiveEggs then
+        error("không thấy ServerData.ActiveEggs (sai game?)")
+    end
+
+    local Tabs = Instance.new("Frame")
+    Tabs.Name = "MA_EGG_TABS"
+    Tabs.Size = UDim2.new(1, -20, 0, 36)
+    Tabs.Position = UDim2.new(0, 10, 0, 48)
+    Tabs.BackgroundTransparency = 1
+    Tabs.Parent = Main
+
+    local TabLayout = Instance.new("UIListLayout")
+    TabLayout.FillDirection = Enum.FillDirection.Horizontal
+    TabLayout.Padding = UDim.new(0, 5)
+    TabLayout.Parent = Tabs
+
+    local SeeButton = MakeButton(Tabs, "NHÌN TRỨNG", ON, UDim2.new(0.5, -3, 1, 0))
+    local TakeButton = MakeButton(Tabs, "LẤY TRỨNG", OFF, UDim2.new(0.5, -3, 1, 0))
+
+    OldList.Position = UDim2.new(0, 10, 0, 90)
+    OldList.Size = UDim2.new(1, -20, 1, -100)
+
+    local TakePage = Instance.new("ScrollingFrame")
+    TakePage.Name = "MA_TAKE_EGG_PAGE"
+    TakePage.Size = UDim2.new(1, -20, 1, -100)
+    TakePage.Position = UDim2.new(0, 10, 0, 90)
+    TakePage.BackgroundTransparency = 1
+    TakePage.BorderSizePixel = 0
+    TakePage.ScrollBarThickness = 4
+    TakePage.Visible = false
+    TakePage.Parent = Main
+
+    local TakeLayout = Instance.new("UIListLayout")
+    TakeLayout.Padding = UDim.new(0, 6)
+    TakeLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    TakeLayout.Parent = TakePage
+
+    local SetBtn = MakeButton(TakePage, "ĐẶT VỊ TRÍ LẤY TRỨNG", MID, UDim2.new(1, -5, 0, 38))
+    SetBtn.LayoutOrder = -100
+
+    SetBtn.Activated:Connect(function()
+        local Root = GetChar()
+        if not Root then
+            SetBtn.Text = "KHÔNG TÌM THẤY NHÂN VẬT"
+        else
+            D.Home = Root.CFrame
+            SetBtn.Text = "ĐẶT THÀNH CÔNG"
+        end
+        task.wait(1.2)
+        if SetBtn.Parent then SetBtn.Text = "ĐẶT VỊ TRÍ LẤY TRỨNG" end
+    end)
+
+    local function MakeStepper(Label, Key, Min, Max, Step, Order)
+        local Row = Instance.new("Frame")
+        Row.Size = UDim2.new(1, -5, 0, 38)
+        Row.BackgroundTransparency = 1
+        Row.LayoutOrder = Order
+        Row.Parent = TakePage
+
+        local Minus = MakeButton(Row, "-", MID, UDim2.new(0, 40, 1, 0), UDim2.new(0, 0, 0, 0))
+        local Plus = MakeButton(Row, "+", MID, UDim2.new(0, 40, 1, 0), UDim2.new(1, -40, 0, 0))
+        Minus.TextSize = 18
+        Plus.TextSize = 18
+
+        local Box = Instance.new("TextBox")
+        Box.Size = UDim2.new(1, -92, 1, 0)
+        Box.Position = UDim2.new(0, 46, 0, 0)
+        Box.BackgroundColor3 = Color3.fromRGB(40, 30, 65)
+        Box.BorderSizePixel = 0
+        Box.TextColor3 = Color3.new(1, 1, 1)
+        Box.Font = Enum.Font.GothamBold
+        Box.TextSize = 11
+        Box.ClearTextOnFocus = false
+        Box.Parent = Row
+        Style(Box, 8)
+
+        local function Show()
+            Box.Text = Label .. ": " .. tostring(S[Key])
+        end
+
+        local function Set(n)
+            n = tonumber(n)
+            if not n then Show() return end
+            S[Key] = math.clamp(math.floor(n), Min, Max)
+            Show()
+        end
+
+        Minus.Activated:Connect(function() Set(S[Key] - Step) end)
+        Plus.Activated:Connect(function() Set(S[Key] + Step) end)
+        Box.FocusLost:Connect(function()
+            Set(string.match(Box.Text, "%d+"))
+        end)
+        Show()
+    end
+
+    MakeStepper("Tốc độ bay", "Speed", S.MinSpeed, S.MaxSpeed, S.SpeedStep, -95)
+    MakeStepper("Độ cao bay", "Hover", S.MinHover, S.MaxHover, S.HoverStep, -90)
+
+    local StopBtn = MakeButton(TakePage, "DỪNG BAY / DỪNG NHẶT", Color3.fromRGB(140, 45, 60), UDim2.new(1, -5, 0, 34))
+    StopBtn.LayoutOrder = -70
+    StopBtn.Activated:Connect(function()
+        if D.Busy then D.Cancel = true end
+    end)
+
+    SeeButton.Activated:Connect(function()
+        OldList.Visible = true
+        TakePage.Visible = false
+        SeeButton.BackgroundColor3 = ON
+        TakeButton.BackgroundColor3 = OFF
+    end)
+
+    TakeButton.Activated:Connect(function()
+        OldList.Visible = false
+        TakePage.Visible = true
+        SeeButton.BackgroundColor3 = OFF
+        TakeButton.BackgroundColor3 = ON
+        if D.Refresh then D.Refresh() end
+    end)
+
+    D.UI = {
+        TakePage = TakePage,
+        TakeLayout = TakeLayout,
+        ActiveEggs = ActiveEggs,
+    }
+    return true
+end
+
+--========================================================
+-- THU CUNG XIN NHAT + THOI GIAN TRUNG
+--========================================================
+local function BuildPet()
+    local TIME_WORDS = {
+        "expire", "despawn", "lifetime", "timeleft", "remain", "timer",
+        "duration", "endtime", "deadline", "ttl", "time", "left", "end",
+    }
+
+    local function ServerNow()
+        local ok, t = pcall(function() return workspace:GetServerTimeNow() end)
+        if ok and t then return t end
+        return os.time()
+    end
+
+    function D.GetRemaining(Egg)
+        if not Egg then return nil end
+        local now = ServerNow()
+        local bestRem
+
+        for name, val in pairs(Egg:GetAttributes()) do
+            if type(val) == "number" then
+                local l = string.lower(name)
+                local isTime = false
+                for _, w in ipairs(TIME_WORDS) do
+                    if string.find(l, w, 1, true) then
+                        isTime = true
+                        break
+                    end
+                end
+                if isTime then
+                    local rem = nil
+                    if val > 1e11 then
+                        rem = val / 1000 - now
+                    elseif val > 1e8 then
+                        rem = val - now
+                    elseif val > 0 and val <= 7200 then
+                        if string.find(l, "left", 1, true)
+                            or string.find(l, "remain", 1, true) then
+                            rem = val
+                        end
+                    end
+                    if rem and rem > 0 and rem < 86400 then
+                        if not bestRem or rem < bestRem then bestRem = rem end
+                    end
+                end
+            end
+        end
+
+        return bestRem
+    end
+
+    local SUFFIX = {k = 1e3, m = 1e6, b = 1e9, t = 1e12}
+
+    local function PetScore(tool)
+        local l = string.lower(tool.Name)
+        local score = 0
+
+        -- ten dang "Dog [337.35 KG] [Age 5]"
+        local num, suf = string.match(l, "([%d%.,]+)%s*([kmbt]?)%s*kg")
+        if num then
+            num = string.gsub(num, ",", "")
+            local n = tonumber(num)
+            if n then score = n * (SUFFIX[suf] or 1) end
+        end
+
+        for k, v in pairs(tool:GetAttributes()) do
+            if type(v) == "number" then
+                local kl = string.lower(k)
+                if string.find(kl, "weight", 1, true)
+                    or string.find(kl, "kg", 1, true)
+                    or string.find(kl, "mass", 1, true)
+                    or string.find(kl, "size", 1, true) then
+                    if v > score then score = v end
+                end
+            end
+        end
+
+        local age = tonumber(string.match(l, "age%s*(%d+)")) or 0
+        return score + age * 1e-6
+    end
+
+    local function IsPetTool(t)
+        if not t:IsA("Tool") then return false end
+        local l = string.lower(t.Name)
+        return string.find(l, "kg", 1, true) ~= nil
+            or string.find(l, "pet", 1, true) ~= nil
+            or string.find(l, "%[") ~= nil
+    end
+
+    local function FindBestPet()
+        local best, bestScore = nil, -1
+        local places = {Player:FindFirstChild("Backpack"), Player.Character}
+        for _, place in ipairs(places) do
+            if place then
+                for _, t in ipairs(place:GetChildren()) do
+                    if IsPetTool(t) then
+                        local sc = PetScore(t)
+                        if sc > bestScore then best, bestScore = t, sc end
+                    end
+                end
+            end
+        end
+        return best
+    end
+
+    local RIDE_WORDS = {"ride", "mount", "saddle", "cuoi", "riding"}
+
+    local function FindRideRemotes()
+        local list = {}
+        for _, v in ipairs(RS:GetDescendants()) do
+            if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+                local l = string.lower(v.Name)
+                for _, w in ipairs(RIDE_WORDS) do
+                    if string.find(l, w, 1, true) then
+                        table.insert(list, v)
+                        break
+                    end
+                end
+            end
+        end
+        return list
+    end
+
+    D.RideNote = ""
+
+    function D.TryRide()
+        D.RideNote = ""
+        local Root, Hum = GetChar()
+        if not Hum then
+            D.RideNote = "không thấy nhân vật"
+            return false
+        end
+
+        local Pet = FindBestPet()
+        if not Pet then
+            D.RideNote = "không thấy thú cưng trong túi"
+            return false
+        end
+
+        if Pet.Parent ~= Player.Character then
+            pcall(function() Hum:EquipTool(Pet) end)
+            task.wait(0.3)
+        end
+
+        for _, r in ipairs(FindRideRemotes()) do
+            task.spawn(function()
+                pcall(function()
+                    if r:IsA("RemoteEvent") then
+                        r:FireServer(Pet)
+                    else
+                        r:InvokeServer(Pet)
+                    end
+                end)
+            end)
+        end
+        task.wait(0.4)
+
+        D.RideNote = "đã chọn " .. Pet.Name
+        return true
+    end
+
+    return true
+end
+--========================================================
+-- NHAT TRUNG (THUONG + XIN NHAT + LUCK 2.5T BAY VAO) + DANH SACH
+--========================================================
+local function BuildEggs()
+    local TakePage = D.UI.TakePage
+    local TakeLayout = D.UI.TakeLayout
+    local ActiveEggs = D.UI.ActiveEggs
+
+    local RefreshEggs
+
+    local EggsModule
+    pcall(function()
+        EggsModule = require(
+            RS:WaitForChild("GameData", 5):WaitForChild("Eggs", 5)
+        )
+    end)
+
+    local function FormatNumber(n)
+        n = tonumber(n) or 0
+        if n >= 1e12 then return string.format("%.2fT", n / 1e12)
+        elseif n >= 1e9 then return string.format("%.2fB", n / 1e9)
+        elseif n >= 1e6 then return string.format("%.2fM", n / 1e6)
+        elseif n >= 1e3 then return string.format("%.2fK", n / 1e3)
+        end
+        return tostring(n)
+    end
+
+    local function GetEggInfo(Egg)
+        local EggName = Egg and Egg:GetAttribute("Egg")
+        if not EggName then return nil, 0 end
+        local Luck = tonumber(Egg:GetAttribute("Luck")) or 0
+        if EggsModule then
+            pcall(function()
+                local Data = EggsModule[EggName]
+                if type(Data) == "table" then
+                    Luck = tonumber(Data.Luck) or Luck
+                end
+            end)
+        end
+        return EggName, Luck
+    end
+
+    local function FindPrompt(Egg)
+        if not Egg or not Egg.Parent then return nil end
+        local Prompt = Egg:FindFirstChildWhichIsA("ProximityPrompt", true)
+        if Prompt then return Prompt end
+
+        local Position = Egg:GetAttribute("Position")
+        if typeof(Position) ~= "Vector3" then return nil end
+
+        for _, Object in ipairs(workspace:GetDescendants()) do
+            if Object:IsA("ProximityPrompt") then
+                local Parent = Object.Parent
+                if Parent and Parent:IsA("BasePart")
+                    and (Parent.Position - Position).Magnitude <= 8 then
+                    return Object
+                end
+            end
+        end
+        return nil
+    end
+
+    local function IsGone(Egg)
+        return (not Egg) or (not Egg.Parent) or (Egg.Parent ~= ActiveEggs)
+    end
+
+    local function IdleText(Button)
+        return Button:GetAttribute("Idle") or "NHẶT"
+    end
+
+    local function ResetText(Button, Delay)
+        task.wait(Delay or 0.7)
+        if Button and Button.Parent then Button.Text = IdleText(Button) end
+    end
+
+    -- trung Luck >= 2.5T: bay toi + tim loi vao, khong tele
+    local function IsFlyInEgg(Egg)
+        local _, luck = GetEggInfo(Egg)
+        return luck >= S.FlyInLuck * 0.999
+    end
+
+    local function DoPick(Egg, Button)
+        local Home = D.Home
+        if not Home then
+            Button.Text = "CHƯA ĐẶT VỊ TRÍ"
+            return ResetText(Button, 1)
+        end
+        if IsGone(Egg) then
+            Button.Text = "KHÔNG CÒN"
+            return ResetText(Button, 0.6)
+        end
+
+        local Root, Hum = GetChar()
+        if not Root then return end
+
+        local PickStart = os.clock()
+        local ExpireClock = nil
+        local FlyIn = IsFlyInEgg(Egg) and D.FlyTo ~= nil
+
+        if S.AutoRide and D.TryRide then
+            Button.Text = "ĐANG CHỌN THÚ CƯỠI..."
+            local rideOk, rideRes = pcall(D.TryRide)
+            if not rideOk then
+                warn("LOI CUOI THU:", rideRes)
+            elseif not rideRes then
+                Button.Text = "KHÔNG CƯỠI: " .. tostring(D.RideNote)
+                task.wait(0.8)
+            end
+        end
+
+        local Picked = false
+        Button.Text = "TỚI TRỨNG..."
+
+        for attempt = 1, 10 do
+            if D.Cancel then break end
+            if IsGone(Egg) then
+                Picked = true
+                break
+            end
+
+            Root, Hum = GetChar()
+            if not Root then return end
+
+            if D.GetRemaining then
+                local rem = D.GetRemaining(Egg)
+                if rem then ExpireClock = os.clock() + rem end
+            end
+
+            local Position = Egg:GetAttribute("Position")
+            if typeof(Position) == "Vector3" then
+                local goal = Position + Vector3.new(0, 3, 0)
+                if FlyIn then
+                    -- bay toi va tim loi vao (khong tele)
+                    if (Root.Position - goal).Magnitude > 8 then
+                        D.FlyTo(Root, Hum, goal, {
+                            Maze = true,
+                            OnStatus = function(dist, climbing, spd)
+                                if Button and Button.Parent then
+                                    Button.Text = "TÌM LỐI VÀO " .. math.floor(dist)
+                                        .. "m  " .. math.floor(spd) .. "/s"
+                                end
+                            end,
+                        })
+                        Root, Hum = GetChar()
+                        if not Root then return end
+                        if D.Cancel then break end
+                    end
+                else
+                    Root.CFrame = CFrame.new(goal)
+                    Root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                end
+            end
+
+            if attempt == 1 then task.wait(0.5) end
+
+            local Prompt = FindPrompt(Egg)
+            Button.Text = "ĐANG NHẶT " .. attempt .. "/10"
+
+            if Prompt then
+                if typeof(fireproximityprompt) == "function" then
+                    pcall(fireproximityprompt, Prompt)
+                else
+                    pcall(function()
+                        Prompt:InputHoldBegin()
+                        task.wait(math.max(Prompt.HoldDuration, 0.15))
+                        Prompt:InputHoldEnd()
+                    end)
+                end
+            end
+
+            for _ = 1, 6 do
+                task.wait(0.1)
+                if IsGone(Egg) then
+                    Picked = true
+                    break
+                end
+            end
+            if Picked then break end
+        end
+
+        if D.Cancel then
+            Button.Text = "ĐÃ DỪNG"
+            return ResetText(Button, 0.7)
+        end
+
+        if not Picked then
+            Button.Text = "NHẶT THẤT BẠI - ĐỨNG LẠI"
+            return ResetText(Button, 1.5)
+        end
+
+        if not ExpireClock then
+            ExpireClock = PickStart + S.ManualTime
+        end
+
+        local Deadline = ExpireClock - S.Reserve
+
+        Button.Text = "ĐÃ NHẶT - BAY VỀ"
+        task.wait(0.2)
+
+        Root, Hum = GetChar()
+        if not Root then return end
+
+        local Arrived = D.FlyTo(Root, Hum, Home.Position, {
+            Deadline = Deadline,
+            OnStatus = function(dist, climbing, spd)
+                if Button and Button.Parent then
+                    local icon = "BAY "
+                    if climbing then icon = "LÊN CAO " end
+                    Button.Text = icon .. math.floor(dist) .. "m  " .. math.floor(spd) .. "/s"
+                end
+            end,
+        })
+
+        if Arrived and Root and Root.Parent then
+            Root.CFrame = Home
+            Root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            Button.Text = "TỚI NHÀ"
+            task.wait(1.2)
+        else
+            Button.Text = "ĐÃ DỪNG"
+        end
+        ResetText(Button, 0.5)
+    end
+
+    local function PickEgg(Egg, Button)
+        if D.Busy then return end
+        D.Busy = true
+        D.Cancel = false
+        local ok, err = pcall(DoPick, Egg, Button)
+        if not ok then warn("LOI NHAT TRUNG:", err) end
+        D.Busy = false
+        D.Cancel = false
+        if Button and Button.Parent then Button.Text = IdleText(Button) end
+    end
+
+    -- nut nhat trung xin nhat (Luck cao nhat trong server)
+    local function FindBestEgg()
+        local best, bestName, bestLuck
+        for _, Egg in ipairs(ActiveEggs:GetChildren()) do
+            local name, luck = GetEggInfo(Egg)
+            if name and (not best or luck > bestLuck) then
+                best, bestName, bestLuck = Egg, name, luck
+            end
+        end
+        return best, bestName, bestLuck
+    end
+
+    local BestBtn = MakeButton(
+        TakePage, "NHẶT TRỨNG XỊN NHẤT",
+        Color3.fromRGB(200, 140, 30), UDim2.new(1, -5, 0, 44)
+    )
+    BestBtn.LayoutOrder = -80
+    BestBtn.TextWrapped = true
+    BestBtn:SetAttribute("Idle", "NHẶT TRỨNG XỊN NHẤT")
+
+    local function UpdateBest()
+        local Egg, Name, Luck = FindBestEgg()
+        local txt
+        if Egg then
+            txt = "NHẶT TRỨNG XỊN NHẤT\n" .. tostring(Name) .. "  |  Luck " .. FormatNumber(Luck)
+        else
+            txt = "NHẶT TRỨNG XỊN NHẤT\n(hiện chưa có trứng)"
+        end
+        BestBtn:SetAttribute("Idle", txt)
+        if not D.Busy then BestBtn.Text = txt end
+    end
+
+    BestBtn.Activated:Connect(function()
+        if D.Busy then return end
+        local Egg = FindBestEgg()
+        if not Egg then
+            BestBtn.Text = "KHÔNG CÓ TRỨNG NÀO"
+            task.wait(0.8)
+            UpdateBest()
+            return
+        end
+        PickEgg(Egg, BestBtn)
+    end)
+
+    local EggRows = {}
+
+    local function CreateEggRow(Egg)
+        local EggName, Luck = GetEggInfo(Egg)
+        if not EggName then return end
+
+        local Row = Instance.new("Frame")
+        Row.Name = "Egg_" .. tostring(EggName)
+        Row.Size = UDim2.new(1, -5, 0, 58)
+        Row.BackgroundColor3 = Color3.fromRGB(40, 30, 65)
+        Row.BorderSizePixel = 0
+        Row.Parent = TakePage
+        Style(Row, 9)
+
+        local Info = Instance.new("TextLabel")
+        Info.BackgroundTransparency = 1
+        Info.Position = UDim2.new(0, 10, 0, 4)
+        Info.Size = UDim2.new(1, -150, 1, -8)
+        Info.Text = tostring(EggName) .. "\nLuck: " .. FormatNumber(Luck)
+        Info.TextColor3 = Color3.new(1, 1, 1)
+        Info.Font = Enum.Font.GothamBold
+        Info.TextSize = 11
+        Info.TextXAlignment = Enum.TextXAlignment.Left
+        Info.TextYAlignment = Enum.TextYAlignment.Center
+        Info.Parent = Row
+
+        local Button = MakeButton(Row, "NHẶT", ON, UDim2.new(0, 130, 0, 34), UDim2.new(1, -136, 0.5, -17))
+        Button.TextSize = 9
+        Button.TextWrapped = true
+
+        EggRows[EggName] = Row
+
+        Button.Activated:Connect(function()
+            if D.Busy then return end
+
+            local TargetEgg
+            for _, CurrentEgg in ipairs(ActiveEggs:GetChildren()) do
+                if CurrentEgg:GetAttribute("Egg") == EggName then
+                    TargetEgg = CurrentEgg
+                    break
+                end
+            end
+
+            if not TargetEgg then
+                Button.Text = "KHÔNG CÒN"
+                task.wait(0.5)
+                RefreshEggs()
+                return
+            end
+
+            PickEgg(TargetEgg, Button)
+        end)
+    end
+
+    local Queued = false
+
+    RefreshEggs = function()
+        if D.Busy then
+            if not Queued then
+                Queued = true
+                task.spawn(function()
+                    while D.Busy do task.wait(0.3) end
+                    Queued = false
+                    RefreshEggs()
+                end)
+            end
+            return
+        end
+
+        for _, Row in pairs(EggRows) do
+            if Row then Row:Destroy() end
+        end
+        EggRows = {}
+
+        local EggTypes, Order = {}, {}
+        for _, Egg in ipairs(ActiveEggs:GetChildren()) do
+            local EggName = Egg:GetAttribute("Egg")
+            if EggName and not EggTypes[EggName] then
+                EggTypes[EggName] = Egg
+                table.insert(Order, EggName)
+            end
+        end
+
+        table.sort(Order)
+        for _, EggName in ipairs(Order) do
+            CreateEggRow(EggTypes[EggName])
+        end
+
+        UpdateBest()
+
+        task.defer(function()
+            TakePage.CanvasSize = UDim2.new(0, 0, 0, TakeLayout.AbsoluteContentSize.Y + 10)
+        end)
+    end
+
+    D.Refresh = RefreshEggs
+
+    ActiveEggs.ChildAdded:Connect(function()
+        task.wait(0.1)
+        RefreshEggs()
+    end)
+
+    ActiveEggs.ChildRemoved:Connect(function()
+        task.wait(0.1)
+        RefreshEggs()
+    end)
+
+    RefreshEggs()
+    return true
+end
+
+--========================================================
+-- CHAY CA 5 PHAN, XONG HIEN "TAI THANH CONG"
+--========================================================
+local Failed = {}
+
+local function Run(name, fn)
+    local ok, res = xpcall(fn, function(e)
+        local tb = ""
+        pcall(function() tb = debug.traceback() end)
+        return tostring(e) .. "\n" .. tostring(tb)
+    end)
+    if not ok then
+        table.insert(Failed, name .. ": " .. tostring(res))
+        return false
+    end
+    return true
+end
+
+Run("Dò đường", BuildNav)
+Run("Bay", BuildFly)
+local uiOk = Run("Giao diện", BuildUI)
+if uiOk then
+    Run("Thú cưng", BuildPet)
+    Run("Nhặt trứng", BuildEggs)
+end
+
+if #Failed == 0 then
+    D.Status("Tải thành công", false, 3)
+else
+    D.Status("Có lỗi khi tải:\n" .. table.concat(Failed, "\n"), true)
+end
